@@ -1,0 +1,21 @@
+{
+  "universes": [
+    "peaky-blinders",
+    "leverage",
+    "slow-horses",
+    "tinker-tailor",
+    "sherlock-holmes",
+    "oceans-11",
+    "mission-impossible",
+    "person-of-interest",
+    "firefly",
+    "the-expanse",
+    "mass-effect",
+    "apollo-13",
+    "star-wars-original",
+    "lotr",
+    "westworld"
+  ],
+  "default_team_size": 5,
+  "exempt_from_casting": ["Scribe", "Ralph", "@copilot"]
+}

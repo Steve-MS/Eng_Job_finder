@@ -1,0 +1,12 @@
+{
+  "assignments": [
+    {
+      "assignment_id": "a-2026-06-12-001",
+      "created_at": "2026-06-12",
+      "universe": "peaky-blinders",
+      "size": 5,
+      "members": ["Tommy", "Michael", "Ada", "Polly", "Arthur"],
+      "notes": "Initial cast for Mech-PM-Finder project. User selected universe explicitly."
+    }
+  ]
+}

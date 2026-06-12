@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "persistent_name": "Tommy",
+      "universe": "peaky-blinders",
+      "role": "Lead",
+      "created_at": "2026-06-12",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Michael",
+      "universe": "peaky-blinders",
+      "role": "Backend / Scraping",
+      "created_at": "2026-06-12",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Ada",
+      "universe": "peaky-blinders",
+      "role": "Data Extraction",
+      "created_at": "2026-06-12",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Polly",
+      "universe": "peaky-blinders",
+      "role": "Reporting & Domain",
+      "created_at": "2026-06-12",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Arthur",
+      "universe": "peaky-blinders",
+      "role": "Tester / QA",
+      "created_at": "2026-06-12",
+      "legacy_named": false,
+      "status": "active"
+    }
+  ]
+}
