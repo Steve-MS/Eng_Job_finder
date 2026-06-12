@@ -122,7 +122,8 @@ MECH_KEYWORDS: list[str] = [
 ]
 
 # Phrases that disqualify — indicate a non-mechanical-engineering domain.
-# Matched as substrings (no word boundary needed — phrases are specific enough).
+# Matched with word-boundary regex (see _DISQUALIFY_RES below) so that
+# "civil engineering" does NOT trigger the "civil engineer" entry.
 # example: "software engineer"  → disqualify_score += 5 (in title)
 # example: "IT project manager" → disqualify_score += 5 (in title)
 DISQUALIFY_PHRASES: list[str] = [
@@ -153,7 +154,13 @@ DISQUALIFY_PHRASES: list[str] = [
     "electrical engineer", # disqualifies pure electrical, not M&E PM
 ]
 
-# Sectors from vertical boards implicitly qualify (assigned by sector.py).
+# Pre-compiled word-boundary patterns for DISQUALIFY_PHRASES.
+# example: matches "civil engineer", not "civil engineering"
+# example: matches "software engineer", not any non-word-bounded substring
+_DISQUALIFY_RES: list[re.Pattern] = [
+    re.compile(r"\b" + re.escape(ph) + r"\b", re.IGNORECASE)
+    for ph in DISQUALIFY_PHRASES
+]
 _MECHANICAL_SECTORS = frozenset({
     "rail",
     "aerospace",
@@ -220,9 +227,20 @@ def passes_mechanical(listing: NormalizedListing) -> bool:
     """
     if listing.sector in _MECHANICAL_SECTORS:
         title_lower = (listing.title or "").lower()
-        if any(phrase in title_lower for phrase in DISQUALIFY_PHRASES):
-            return False
-        return True
+        # Disqualifier substring check. When a disqualifying phrase fires, allow
+        # through only if a mechanical keyword is *also* present in the title —
+        # this handles multi-discipline titles like "Mechanical & Civil Engineering"
+        # where mechanical content is the primary scope.
+        # example: "Civil Engineering" fires disqualifier, no mech keyword → rejected
+        # example: "Mechanical & Civil Engineering" fires disqualifier, "mechanical"
+        #          present → passes (mech content overrides the disqualifier)
+        has_disqualifier = any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)
+        if not has_disqualifier:
+            return True
+        return any(
+            re.search(r"\b" + re.escape(kw) + r"\b", title_lower)
+            for kw in MECH_KEYWORDS
+        )
 
     # Generalist sector: keyword scoring
     title = (listing.title or "").lower()
@@ -233,8 +251,8 @@ def passes_mechanical(listing: NormalizedListing) -> bool:
         + sum(1 for kw in MECH_KEYWORDS if re.search(r"\b" + re.escape(kw) + r"\b", desc))
     )
     disqualify_score = (
-        5 * sum(1 for ph in DISQUALIFY_PHRASES if ph in title)
-        + 2 * sum(1 for ph in DISQUALIFY_PHRASES if ph in desc)
+        5 * sum(1 for pat in _DISQUALIFY_RES if pat.search(title))
+        + 2 * sum(1 for pat in _DISQUALIFY_RES if pat.search(desc))
     )
     return mech_score >= 1 and mech_score > disqualify_score
 

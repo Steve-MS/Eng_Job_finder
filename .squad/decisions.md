@@ -116,4 +116,75 @@ Authoritative decision ledger for the team. Append-only. Newest at the bottom.
 
 ---
 
+### 2026-06-12: Reviewer-Lockout Patch — Tommy (2026-06-12)
+
+**Date:** 2026-06-12  
+**Author:** Tommy (Lead) — acting under Reviewer Rejection Lockout  
+**Status:** Implemented and verified
+
+---
+
+## Escalation Rationale
+
+Arthur (Reviewer) rejected Ada's UK filter and mechanical-domain filter implementations on 2 gold-set cases during Sprint 1 QA. Steve explicitly chose **strict Reviewer Rejection Lockout** enforcement: Ada is locked out of this revision and may not contribute, advise, or co-author the patch. Tommy was assigned as the sole revision author per `squad.agent.md` lockout semantics.
+
+Tommy read Ada's code to understand the defects but all patch authorship is Tommy's.
+
+---
+
+## Defects Fixed
+
+### Defect 1 — `detect_country()` missing UAE/Dubai
+
+| Item | Detail |
+|---|---|
+| **File** | `src/mechpm/extractor/regex_fields.py` |
+| **Fixture** | `tests/fixtures/gold_set/negative/neg_03_nonuk_dubai` |
+| **Root cause** | `_NON_UK_MAP` had no UAE/Dubai/Abu Dhabi entry. `detect_country("Dubai, United Arab Emirates")` defaulted to `"GB"`, making `passes_uk()` return `True` for a non-UK listing. |
+| **Fix** | Added UAE entry `(re.compile(r"\b(dubai\|abu\s+dhabi\|uae\|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE")` as first entry in `_NON_UK_MAP`. Also added USA (`US`), Saudi Arabia (`SA`), Qatar (`QA`), Singapore (`SG`), India (`IN`) per the "small non-exhaustive Gulf/EU/US list" directive. Existing IE/NL/DE/FR entries retained unchanged. |
+| **Acceptance impact** | `uk_filter` precision: 0.952 → 1.000 (≥ 0.99 threshold now met). |
+
+### Defect 2 — "civil engineering" substring false-fires mech disqualifier
+
+| Item | Detail |
+|---|---|
+| **File** | `src/mechpm/extractor/filters.py` |
+| **Fixture** | `tests/fixtures/gold_set/edge_cases/edge_06_multi_discipline` |
+| **Root cause** | `passes_mechanical()` mechanical-sectors path used `any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)` (substring). `"civil engineer"` is a substring of `"civil engineering"`, so any title containing "Civil Engineering" was disqualified, even when the role was mechanically-led. |
+| **Fix — mechanical-sectors path** | Kept the substring disqualifier check but added a mech-keyword counterbalance: when a disqualifier fires, the function now passes the listing only if a `MECH_KEYWORDS` entry (word-boundary anchored) also appears in the title. Multi-discipline roles with explicit mech content (e.g. "Mechanical & Civil Engineering") pass; purely civil titles without mech keywords (e.g. "Civil Engineering / Highways") still fail. |
+| **Fix — generalist path** | Added `_DISQUALIFY_RES` (pre-compiled `\b{phrase}\b` patterns for each DISQUALIFY_PHRASES entry). Generalist scoring now uses word-boundary regex instead of substring check, so `"civil engineer\b"` does NOT match `"civil engineering"` in that path either. |
+| **Inline comment added** | `# example: matches "civil engineer", not "civil engineering"` on `_DISQUALIFY_RES`. |
+| **Acceptance impact** | `mech_filter` false-negative for `edge_06` eliminated. Recall and precision both within gate thresholds. |
+
+---
+
+## Pytest Before / After
+
+| State | Passed | Failed | Skipped |
+|---|---|---|---|
+| **Before patch** | 84 | 3 | 26 |
+| **After patch** | 87 | 0 | 26 |
+
+Failing tests resolved:
+- `test_filter_outcomes[negative/neg_03_nonuk_dubai]`
+- `test_filter_outcomes[edge_cases/edge_06_multi_discipline]`
+- `test_uk_filter_precision_recall`
+
+---
+
+## Scope Boundaries
+
+- Only `src/mechpm/extractor/regex_fields.py` and `src/mechpm/extractor/filters.py` were modified.
+- No tests modified. No gold-set fixtures modified. No other source files touched.
+- Tommy's country additions are a conservative minimum: Ada's broader country/city disambiguation coverage remains her responsibility for future sprints.
+- Ada's broader disqualifier list coverage and any edge cases beyond this patch set remain Ada's responsibility once the lockout lifts.
+
+---
+
+## Downstream
+
+Scribe handles commit. No further action required from Tommy on this patch.
+
+---
+
 

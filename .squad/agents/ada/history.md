@@ -132,3 +132,9 @@ failure rates on real-world job description text and justify the LLM fallback:
   `description_raw` as new fields — all additive, zero reporter breakage.
 - `listing_id` is now auto-computed by `model_validator` if not supplied.
 - `datetime.utcnow()` (deprecated in 3.12) replaced with `datetime.now(timezone.utc)`.
+
+---
+
+## 2026-06-12: Tommy Patched Defects Under Lockout
+
+Tommy patched Ada's two filter defects (UAE country detection + civil/mech disambiguation) under strict reviewer-lockout after Arthur's rejection. Both defects fixed and validated. pytest: 3 failed → 0 failed. Ada: when lockout lifts, broader country/disqualifier coverage is yours.

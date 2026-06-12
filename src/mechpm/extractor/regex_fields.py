@@ -156,13 +156,25 @@ _MONTH_MAP: dict[str, int] = {
 }
 
 # Non-UK location patterns (for country detection)
-# example: "Dublin, Ireland"     → country="IE"
-# example: "Amsterdam, NL"       → country="NL"
+# example: "Dublin, Ireland"             → country="IE"
+# example: "Amsterdam, NL"               → country="NL"
+# example: "Dubai, United Arab Emirates" → country="AE"
+# example: "Riyadh, Saudi Arabia"        → country="SA"
 _NON_UK_MAP: list[tuple[re.Pattern, str]] = [
+    # Gulf / Middle East
+    (re.compile(r"\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE"),
+    (re.compile(r"\b(saudi\s+arabia|riyadh|jeddah|ksa)\b", re.IGNORECASE), "SA"),
+    (re.compile(r"\b(qatar|doha)\b", re.IGNORECASE), "QA"),
+    # Europe
     (re.compile(r"\b(dublin|ireland|republic\s+of\s+ireland)\b", re.IGNORECASE), "IE"),
     (re.compile(r"\b(netherlands|amsterdam|rotterdam)\b", re.IGNORECASE), "NL"),
     (re.compile(r"\b(germany|berlin|munich|hamburg|frankfurt)\b", re.IGNORECASE), "DE"),
     (re.compile(r"\b(france|paris|lyon|marseille)\b", re.IGNORECASE), "FR"),
+    # Americas
+    (re.compile(r"\b(usa|united\s+states|new\s+york|los\s+angeles|chicago|houston|san\s+francisco)\b", re.IGNORECASE), "US"),
+    # Asia-Pacific
+    (re.compile(r"\b(singapore)\b", re.IGNORECASE), "SG"),
+    (re.compile(r"\b(india|mumbai|delhi|bangalore|chennai|hyderabad|pune)\b", re.IGNORECASE), "IN"),
 ]
 
 

@@ -11,6 +11,29 @@
 ## Learnings
 <!-- Append new learnings here. Use ISO 8601 dates. -->
 
+### 2026-06-12: Reviewer-Lockout Patches (Tommy, escalation author)
+
+**Context:** Arthur (Reviewer) rejected Ada's UK filter and mechanical-domain filter on 2 gold-set cases. Steve invoked strict Reviewer Rejection Lockout, assigning Tommy as revision author. Ada is locked out of this revision.
+
+**Defect 1 — UAE/Dubai country detection (`regex_fields.py`)**
+- Root cause: `_NON_UK_MAP` had no UAE/Dubai/Abu Dhabi entry; `detect_country()` defaulted to `"GB"`.
+- Fix: Added `(re.compile(r"\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE")` as the first entry in `_NON_UK_MAP`. Also added USA (`US`), Saudi Arabia (`SA`), Qatar (`QA`), Singapore (`SG`), India (`IN`) per the small-list directive. Existing IE/NL/DE/FR entries retained.
+- Pattern added: `\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b` → `"AE"`.
+
+**Defect 2 — "civil engineering" false-fires mech disqualifier (`filters.py`)**
+- Root cause: `passes_mechanical()` mechanical-sectors path used `any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)` (substring match). `"civil engineer"` is a substring of `"civil engineering"`, so `edge_06_multi_discipline` (title: "Mechanical & Civil Engineering") was incorrectly rejected.
+- Fix (mechanical-sectors path): Kept the substring disqualifier check, but added a mech-keyword counterbalance — when a disqualifier fires, the function now returns `True` only if a mechanical keyword from `MECH_KEYWORDS` also appears in the title (word-boundary anchored). This restores Ada's intended "mech_score beats disqualify_score" balance for multi-discipline titles.
+  - Pattern logic: `has_disqualifier = any(phrase in title_lower …)` → if no disqualifier, pass; if disqualifier found, `return any(re.search(r"\b" + re.escape(kw) + r"\b", title_lower) for kw in MECH_KEYWORDS)`
+- Fix (generalist path): Added `_DISQUALIFY_RES` pre-compiled list (`\b{phrase}\b` for each DISQUALIFY_PHRASES entry). Changed generalist scoring to use `_DISQUALIFY_RES` (word-boundary regex) instead of `ph in text` substring check.
+  - Pattern for each phrase: `re.compile(r"\b" + re.escape(ph) + r"\b", re.IGNORECASE)`
+  - This ensures `\bcivil engineer\b` does NOT match "civil engineering" in the generalist scoring path either.
+
+**Pytest before/after:**
+- Before: `3 failed, 84 passed, 26 skipped`
+- After: `0 failed, 87 passed, 26 skipped`
+
+**Scope note:** This patch is the minimum to clear Arthur's gate. Ada's broader country coverage (additional cities, disambiguation) and any further disqualifier coverage remain her responsibility for future sprints. Tommy's additions are conservative and scoped to the failing fixtures only.
+
 ### 2026-06-12: Architecture Finalisation — Key Decisions
 - **Scheduler:** Windows Task Scheduler (native, zero-cost, supports missed-run catch-up and ad-hoc `schtasks /run`). No cloud infra for v0.1.
 - **StepStone adapter family:** Single parameterised `StepStoneAdapter` class instantiated per-source via config.toml. Covers Totaljobs + CWJobs. Careerstructure deferred to v0.2.
