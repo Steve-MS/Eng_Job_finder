@@ -23,7 +23,18 @@ def _get_registry() -> dict:
     """Lazily build adapter registry (avoids circular imports at module load)."""
     if not _ADAPTER_REGISTRY:
         from mechpm.adapters.reed import ReedAdapter
+        from mechpm.adapters.energy_jobline import EnergyJoblineAdapter
+        from mechpm.adapters.railwaypeople import RailwayPeopleAdapter
+        from mechpm.adapters.aviation_job_search import AviationJobSearchAdapter
+        from mechpm.adapters.the_engineer import TheEngineerAdapter
+        from mechpm.adapters.stepstone import StepStoneAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
+        _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
+        _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
+        _ADAPTER_REGISTRY["aviation_job_search"] = AviationJobSearchAdapter
+        _ADAPTER_REGISTRY["the_engineer"] = TheEngineerAdapter
+        _ADAPTER_REGISTRY["totaljobs"] = StepStoneAdapter
+        _ADAPTER_REGISTRY["cwjobs"] = StepStoneAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -53,6 +64,24 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     location=cfg.location,
                     results_to_take=cfg.results_to_take,
                     safety_cap=cfg.safety_cap,
+                )
+            )
+        elif name in ("totaljobs", "cwjobs"):
+            extra: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            domain = extra.get("domain", "")
+            search_path = extra.get("search_path", "")
+            if not domain or not search_path:
+                log.warning(
+                    "Source '%s' missing 'domain' or 'search_path' in config.toml — skipping.",
+                    name,
+                )
+                continue
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    name=name,
+                    domain=domain,
+                    search_path=search_path,
+                    crawl_delay=cfg.crawl_delay,
                 )
             )
         else:

@@ -1,20 +1,278 @@
-"""RailwayPeople.com adapter stub (Next.js SSR / Jobiqo platform) — next sprint."""
+"""RailwayPeople.com adapter — Next.js SSR / Jobiqo platform.
+
+Strategy:
+    GET the HTML search page, extract the ``<script id="__NEXT_DATA__"
+    type="application/json">`` tag, JSON-parse its content, then recursively
+    locate the first list of job-dicts inside ``props.pageProps``.  Each dict
+    is mapped to a ``RawListing``.
+
+Crawl-delay: 10 s between page fetches (robots.txt: ``Crawl-delay: 10``).
+Pagination:   ``&page=N`` appended to the base search URL; capped at
+              _MAX_PAGES for the MVP.
+Since filter: applied client-side on ``posted_at`` after mapping.
+"""
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any
+
+import httpx
+from selectolax.parser import HTMLParser
 
 from mechpm.adapters.base import RawListing, SourceAdapter
 
 logger = logging.getLogger("mechpm.adapter.railwaypeople")
 
+_SEARCH_URL = (
+    "https://www.railwaypeople.com/jobs"
+    "?keywords=project+manager&jobtype=contract"
+)
+_MAX_PAGES = 5
+_PAGE_DELAY_SECONDS = 10  # robots.txt mandates Crawl-delay: 10
+_REQUEST_TIMEOUT = 30.0
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-GB,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+# URL-like field names recognised in Jobiqo job dicts.
+_URL_FIELDS = frozenset({
+    "url", "link", "href", "path", "slug",
+    "jobUrl", "job_url", "permalink",
+})
+
+# Sentinel: JSON path where the jobs list was found (logged once per process).
+_discovered_path: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _find_jobs_list(
+    data: Any,
+    path: str = "",
+    _depth: int = 0,
+) -> tuple[list[dict], str] | None:
+    """Recursively search *data* for the first list of job-like dicts.
+
+    A list qualifies when its first element is a ``dict`` that has both a
+    ``"title"`` key AND at least one URL-like key (``_URL_FIELDS``).
+
+    Returns ``(list_of_dicts, dotted_path)`` or ``None``.
+    Depth-limited to 12 levels to avoid runaway recursion.
+    """
+    if _depth > 12:
+        return None
+
+    if isinstance(data, list):
+        if (
+            len(data) > 0
+            and isinstance(data[0], dict)
+            and "title" in data[0]
+            and _URL_FIELDS.intersection(data[0].keys())
+        ):
+            return data, path
+        # Recurse into list elements (dicts only, skip primitives)
+        for i, item in enumerate(data):
+            result = _find_jobs_list(item, f"{path}[{i}]", _depth + 1)
+            if result is not None:
+                return result
+
+    elif isinstance(data, dict):
+        # Probe well-known Jobiqo / Next.js keys first to short-circuit search.
+        priority_keys = (
+            "jobs", "initialJobs", "searchResults",
+            "results", "listings", "data", "items",
+        )
+        for key in priority_keys:
+            if key in data:
+                child_path = f"{path}.{key}" if path else key
+                result = _find_jobs_list(data[key], child_path, _depth + 1)
+                if result is not None:
+                    return result
+        # Fallback: walk remaining keys.
+        for key, value in data.items():
+            if key in priority_keys:
+                continue
+            child_path = f"{path}.{key}" if path else key
+            result = _find_jobs_list(value, child_path, _depth + 1)
+            if result is not None:
+                return result
+
+    return None
+
+
+def _parse_date(date_str: str | None) -> datetime | None:
+    """Parse a Jobiqo/ISO date string to a UTC-aware datetime."""
+    if not date_str:
+        return None
+    # Handle Unix timestamps (int stored as string)
+    try:
+        ts = float(date_str)
+        return datetime.fromtimestamp(ts, tz=timezone.utc)
+    except (ValueError, OSError):
+        pass
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+    ):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            continue
+    logger.warning("RailwayPeople: could not parse date string: %r", date_str)
+    return None
+
+
+def _extract_url(
+    job: dict[str, Any],
+    base: str = "https://www.railwaypeople.com",
+) -> str:
+    """Best-effort canonical job URL from the job dict."""
+    for key in ("url", "link", "href", "permalink", "path", "slug"):
+        val = job.get(key)
+        if val and isinstance(val, str):
+            if val.startswith("http"):
+                return val
+            # Relative path or slug → build full URL
+            return base.rstrip("/") + "/" + val.lstrip("/")
+    return base
+
+
+def _extract_id(job: dict[str, Any]) -> str:
+    """Best-effort source listing ID from the job dict."""
+    for key in ("id", "jobId", "job_id", "nid", "uuid", "slug"):
+        val = job.get(key)
+        if val is not None:
+            return str(val)
+    return ""
+
+
+def _scalar(value: Any) -> str | None:
+    """Return *value* as a string if it is non-None, else None.
+
+    When *value* is a dict, try to pull a human-readable label from it.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        label = value.get("name") or value.get("label") or value.get("text")
+        return str(label) if label is not None else None
+    return str(value)
+
+
+# Fields extracted explicitly; everything else goes into metadata.
+_MAPPED_KEYS = frozenset({
+    "id", "jobId", "job_id", "nid", "uuid", "slug",
+    "url", "link", "href", "permalink", "path",
+    "title",
+    "location", "locationName", "location_name", "city", "region",
+    "salary", "salaryDescription", "salary_description", "rate", "salaryRange",
+    "company", "employer", "companyName", "company_name", "advertiser", "client",
+    "contractType", "contract_type", "jobType", "employment_type",
+    "description", "jobDescription", "body", "summary",
+    "datePosted", "date_posted", "postedAt", "posted_at",
+    "createdAt", "created_at", "published", "publishedAt",
+})
+
+
+def _map_job_to_raw_listing(job: dict[str, Any]) -> RawListing:
+    """Map a Jobiqo ``__NEXT_DATA__`` job dict to a canonical ``RawListing``."""
+    location = _scalar(
+        job.get("location")
+        or job.get("locationName")
+        or job.get("location_name")
+        or job.get("city")
+        or job.get("region")
+    )
+    salary = _scalar(
+        job.get("salary")
+        or job.get("salaryDescription")
+        or job.get("salary_description")
+        or job.get("rate")
+        or job.get("salaryRange")
+    )
+    employer = _scalar(
+        job.get("company")
+        or job.get("employer")
+        or job.get("companyName")
+        or job.get("company_name")
+        or job.get("advertiser")
+        or job.get("client")
+    )
+    contract_type = _scalar(
+        job.get("contractType")
+        or job.get("contract_type")
+        or job.get("jobType")
+        or job.get("employment_type")
+    )
+    description = _scalar(
+        job.get("description")
+        or job.get("jobDescription")
+        or job.get("body")
+        or job.get("summary")
+    )
+    posted_at_raw = (
+        job.get("datePosted")
+        or job.get("date_posted")
+        or job.get("postedAt")
+        or job.get("posted_at")
+        or job.get("createdAt")
+        or job.get("created_at")
+        or job.get("published")
+        or job.get("publishedAt")
+    )
+    metadata = {k: v for k, v in job.items() if k not in _MAPPED_KEYS}
+
+    return RawListing(
+        source="railwaypeople",
+        source_listing_id=_extract_id(job),
+        url=_extract_url(job),
+        title=job.get("title", ""),
+        employer=employer,
+        agency=None,
+        location_raw=location,
+        description_raw=description,
+        posted_at=_parse_date(str(posted_at_raw) if posted_at_raw is not None else None),
+        salary_raw=salary,
+        contract_type_raw=contract_type,
+        metadata=metadata,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Adapter
+# ---------------------------------------------------------------------------
 
 class RailwayPeopleAdapter(SourceAdapter):
-    """Adapter for RailwayPeople.com.
+    """Adapter for RailwayPeople.com (Next.js SSR / Jobiqo platform).
 
-    Strategy: GET HTML, parse ``<script id="__NEXT_DATA__">`` JSON blob.
-    Crawl-delay: 10 s (robots.txt directive).
-    Not yet implemented — returns [] with a warning.
+    Fetches the HTML search page, parses the ``<script id="__NEXT_DATA__">``
+    JSON blob, recursively locates the jobs list inside ``props.pageProps``,
+    and maps each job dict to a ``RawListing``.
+
+    Paginates up to ``_MAX_PAGES`` pages; sleeps ``_PAGE_DELAY_SECONDS``
+    between requests (robots.txt ``Crawl-delay: 10``).
     """
 
     name = "railwaypeople"
@@ -23,5 +281,189 @@ class RailwayPeopleAdapter(SourceAdapter):
         self.crawl_delay = crawl_delay
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
-        logger.warning("RailwayPeople adapter is not yet implemented — returning [].")
-        return []
+        """Fetch contract PM listings from RailwayPeople.com.
+
+        Returns [] on any unrecoverable error — never raises.
+        Applies *since* filter client-side on ``posted_at``.
+        """
+        listings: list[RawListing] = []
+        try:
+            async with httpx.AsyncClient(
+                headers=_HEADERS,
+                timeout=_REQUEST_TIMEOUT,
+                follow_redirects=True,
+            ) as client:
+                for page_num in range(1, _MAX_PAGES + 1):
+                    url = (
+                        _SEARCH_URL
+                        if page_num == 1
+                        else f"{_SEARCH_URL}&page={page_num}"
+                    )
+                    page_listings, found_count = await self._fetch_page(
+                        client, url, page_num
+                    )
+
+                    if found_count == 0 and page_num == 1:
+                        # Nothing found on the first page — abort early.
+                        break
+
+                    if found_count == 0:
+                        logger.info(
+                            "RailwayPeople: page %d returned 0 listings"
+                            " — stopping pagination.",
+                            page_num,
+                        )
+                        break
+
+                    for raw in page_listings:
+                        if since and raw.posted_at and raw.posted_at < since:
+                            continue
+                        listings.append(raw)
+
+                    if page_num < _MAX_PAGES and found_count > 0:
+                        await asyncio.sleep(_PAGE_DELAY_SECONDS)
+
+        except Exception:
+            logger.exception(
+                "RailwayPeople fetch failed — returning partial results"
+                " (%d so far).",
+                len(listings),
+            )
+            return listings
+
+        logger.info(
+            "RailwayPeople: fetched %d listing(s) (since=%s).",
+            len(listings),
+            since,
+        )
+        return listings
+
+    async def _fetch_page(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        page_num: int,
+    ) -> tuple[list[RawListing], int]:
+        """Fetch and parse one search-result page.
+
+        Returns ``(listings, count_found_in_json)``.
+        Returns ``([], 0)`` on any error — never raises.
+        """
+        global _discovered_path
+
+        # --- HTTP fetch ---
+        try:
+            response = await client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "RailwayPeople HTTP error (page=%d, url=%s): %s",
+                page_num, url, exc,
+            )
+            return [], 0
+        except Exception:
+            logger.exception(
+                "RailwayPeople request failed (page=%d, url=%s).",
+                page_num, url,
+            )
+            return [], 0
+
+        # --- Parse __NEXT_DATA__ from HTML ---
+        try:
+            tree = HTMLParser(response.text)
+        except Exception:
+            logger.exception(
+                "RailwayPeople: HTMLParser failed (page=%d).", page_num
+            )
+            return [], 0
+
+        script_node = tree.css_first("script#__NEXT_DATA__")
+        if script_node is None:
+            logger.warning(
+                "RailwayPeople: <script id='__NEXT_DATA__'> not found on"
+                " page %d — site structure may have changed.",
+                page_num,
+            )
+            return [], 0
+
+        try:
+            next_data: dict[str, Any] = json.loads(script_node.text())
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "RailwayPeople: JSON decode error (page=%d): %s",
+                page_num, exc,
+            )
+            return [], 0
+
+        # --- Locate jobs list inside __NEXT_DATA__ ---
+        page_props: dict[str, Any] = (
+            next_data.get("props", {}).get("pageProps", {})
+        )
+
+        # Try pageProps first (the canonical Next.js location).
+        result = _find_jobs_list(page_props, "props.pageProps")
+        # Widen to the whole blob if pageProps search came up empty.
+        if result is None:
+            result = _find_jobs_list(next_data, "")
+
+        if result is None:
+            top_keys = list(page_props.keys()) if page_props else list(next_data.keys())
+            logger.warning(
+                "RailwayPeople: could not locate jobs list inside"
+                " __NEXT_DATA__ (page=%d). Top-level pageProps keys: %s",
+                page_num,
+                top_keys,
+            )
+            return [], 0
+
+        jobs, path = result
+
+        # Log the discovered path the first time (or if it changes).
+        if _discovered_path != path:
+            _discovered_path = path
+            logger.info(
+                "RailwayPeople: jobs list found at JSON path '%s'"
+                " (count=%d, page=%d).",
+                path, len(jobs), page_num,
+            )
+
+        # --- Map each job dict to RawListing ---
+        listings: list[RawListing] = []
+        for job in jobs:
+            try:
+                listings.append(_map_job_to_raw_listing(job))
+            except Exception:
+                logger.exception(
+                    "RailwayPeople: failed to map job dict — skipping."
+                )
+
+        return listings, len(jobs)
+
+
+# ---------------------------------------------------------------------------
+# Self-test
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    adapter = RailwayPeopleAdapter()
+    results = asyncio.run(adapter.fetch())
+    print(f"Fetched {len(results)} listing(s) from RailwayPeople.")
+    for listing in results[:2]:
+        print(
+            f"  [{listing.source_listing_id}] '{listing.title}'"
+            f" | {listing.employer}"
+            f" | {listing.location_raw}"
+            f" | {listing.salary_raw}"
+            f" | posted={listing.posted_at}"
+        )
+    if not results:
+        print("No results — check logs above for details.", file=sys.stderr)
+        sys.exit(1)

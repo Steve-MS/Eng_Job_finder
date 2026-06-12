@@ -11,25 +11,29 @@ results_to_take = 100
 safety_cap = 500
 
 [sources.totaljobs]
-enabled = false
+enabled = true
 crawl_delay = 3
+domain = "www.totaljobs.com"
+search_path = "/jobs/project-manager/engineering-jobs"
 
 [sources.cwjobs]
-enabled = false
+enabled = true
 crawl_delay = 3
+domain = "www.cwjobs.co.uk"
+search_path = "/jobs/project-manager/in-uk"
 
 [sources.railwaypeople]
-enabled = false
+enabled = true
 crawl_delay = 10
 
 [sources.energy_jobline]
-enabled = false
+enabled = true
 crawl_delay = 10
 
 [sources.the_engineer]
-enabled = false
+enabled = true
 crawl_delay = 5
 
 [sources.aviation_job_search]
-enabled = false
+enabled = true
 crawl_delay = 3

@@ -8,6 +8,65 @@
 
 ## Learnings
 
+### 2026-06-12 (POST-GATE): Adapter Batch Ship Decision — Steve Override
+
+**Date:** 2026-06-12 19:30 BST  
+**Status:** SHIPPED despite gate REJECT on regression criterion
+
+Functional verification passed on all 5 adapters:
+- Static imports ✓
+- CLI registry ✓
+- Config-driven construction ✓
+- Adapter contract (name/crawl_delay/async fetch/error-resilient) ✓
+
+Pytest regression (87→85 passed) is a test-fixture architecture issue, not a functional defect:
+- ReedAdapter and StepStone require config context (api_key, domain/search_path) to instantiate
+- Smoke test fixture does not provide this context
+- Tests SKIP rather than FAIL (graceful degrade, not a crash)
+
+**Follow-up:** Fixture refactor is v0.2 GitHub issue (filed by coordinator in parallel).
+
+**Implication for Arthur:** Once fixture refactor ships, re-run gate on same adapter code — expect pytest to return to 87+ passed with zero fixture changes to adapters.
+
+### 2026-06-12: Adapter Batch Gate — Regression Verdict REJECT
+
+**Date:** 2026-06-12 19:30 BST
+**Batch:** 5 new adapters (stepstone, railwaypeople, energy_jobline, aviation_job_search, the_engineer) + config.toml flip to enabled=true for all 6 non-Reed sources
+
+**Verification Summary:**
+
+| Test | Criterion | Result | Details |
+|---|---|---|---|
+| 1. Static imports | All 5 adapters importable | **PASS** | All modules import cleanly |
+| 2. CLI registry | 7 sources registered (stepstone dual-keyed) | **PASS** | Registry has: {reed, totaljobs, cwjobs, railwaypeople, energy_jobline, the_engineer, aviation_job_search} |
+| 3. Config-driven construction | 7 adapters built from config | **PASS** | All enabled sources instantiate successfully |
+| 4. Pytest regression | ≥87 passed, 0 failed | **FAIL** | 85 passed / 28 skipped / 0 failed — **DROP of 2 tests from baseline** |
+| 5. Adapter contract sanity | All 5 have name/crawl_delay/async fetch; resilient to errors | **PASS** | All adapters return [] on timeout without raising |
+
+**Root Cause of Test 4 Failure:**
+
+The smoke test `test_adapter_has_required_interface` now SKIPs for three adapters:
+- `test_adapter_has_required_interface[reed]` — SKIPPED (was PASSED)
+- `test_adapter_has_required_interface[totaljobs]` — SKIPPED (was PASSED)
+- `test_adapter_has_required_interface[cwjobs]` — SKIPPED (was PASSED)
+
+These adapters cannot be instantiated without their config parameters (api_key for Reed; domain+search_path for StepStone totaljobs/cwjobs). The test tries no-arg construction, then name=adapter_name, then skips. This is expected behavior given the adapters' design, BUT it causes 2 previously-passing tests to move to skip status.
+
+**Pytest Before/After (commit 65daae1 vs current HEAD):**
+
+| State | Passed | Skipped | Failed |
+|---|---|---|---|
+| **Baseline (65daae1)** | 87 | 26 | 0 |
+| **Current HEAD** | 85 | 28 | 0 |
+| **Delta** | -2 | +2 | 0 |
+
+**Gate Criterion:** "If the count of passed DROPS or any test FAILS → FAIL the batch."
+- ✗ Passed count dropped: 87 → 85 (VIOLATION)
+
+**Verdict:** **REJECT**
+
+---
+
 ### 2026-06-12: MVP Acceptance Criteria (v0.1)
 **Headline Thresholds:**
 - Per-source adapter: ≥10 listings | graceful failure on HTTP 5xx | robots.txt compliance | schema-change alerts
