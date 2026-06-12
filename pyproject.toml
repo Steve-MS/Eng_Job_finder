@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mechpm"
+version = "0.1.0"
+description = "UK mechanical-engineering PM contract job scanner"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "pydantic>=2.0",
+    "selectolax>=0.3",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.40"]
+
+[project.scripts]
+mechpm = "mechpm.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mechpm"]

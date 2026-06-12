@@ -1,0 +1,32 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Birmingham",
+    "day_rate_min": 600.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 32,
+    "start_date": "2026-07-28",
+    "asap_flag": false,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "edge_case",
+    "difficulty": "ambiguous_title",
+    "tricky_fields": [
+      "pm_filter",
+      "mech_filter"
+    ],
+    "notes": "Title is just 'Project Manager' — no sector hint. Mechanical domain and PM signals only discoverable from description body (FAT, mechanical build, CNC machining). Both pm_filter and mech_filter must use body-text signals. Should PASS."
+  }
+}

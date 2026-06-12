@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "AE",
+    "location_normalized": "Dubai",
+    "day_rate_min": null,
+    "day_rate_max": null,
+    "rate_currency": "AED",
+    "rate_period": "day",
+    "ir35_status": "not_stated",
+    "contract_type": "contract",
+    "duration_weeks": 104,
+    "start_date": "2026-10-01",
+    "asap_flag": false,
+    "sector": "construction"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": false,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "non_uk_location",
+    "fail_filter": "uk_filter",
+    "notes": "Dubai, UAE. country=AE. Rate in AED (not GBP). No IR35 (UAE jurisdiction). Must fail uk_filter only."
+  }
+}

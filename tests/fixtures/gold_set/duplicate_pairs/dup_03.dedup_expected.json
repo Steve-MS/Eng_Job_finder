@@ -1,0 +1,23 @@
+{
+  "pair_id": "dup_03",
+  "files": ["dup_03a.json", "dup_03b.json"],
+  "should_merge": true,
+  "merge_signals": {
+    "title_jw_similarity": 0.79,
+    "same_agency": true,
+    "same_location_bucket": "Bristol",
+    "rate_overlap_pct": 100.0,
+    "days_between_posts": 2
+  },
+  "canonical_source": "cwjobs",
+  "canonical_fields": {
+    "day_rate_min": 630.0,
+    "day_rate_max": 660.0,
+    "ir35_status": "outside",
+    "location_normalized": "Bristol",
+    "agency": "Matchtech",
+    "duration_weeks": 52,
+    "start_date": "2026-08-03"
+  },
+  "notes": "Same Matchtech aero PM role on CWJobs and Aviation Job Search, 2 days apart. Title JW ~0.79 (borderline \u2014 below standalone threshold). Rate: 630-660 vs 650 \u2014 650 is within the range (100% overlap). Same agency, same location bucket, same start date and duration. Multi-signal scoring should push it above merge threshold even with borderline JW."
+}

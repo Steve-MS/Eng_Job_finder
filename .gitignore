@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+*.sqlite
+*.db
+data/raw/
+reports/*.md
+!reports/2026-06-12-SAMPLE.md

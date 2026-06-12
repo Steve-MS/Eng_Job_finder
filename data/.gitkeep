@@ -1,0 +1,3 @@
+# data directory — SQLite DB and raw JSONL files are written here at runtime.
+# This file keeps the directory tracked by git while the generated data files
+# are excluded via .gitignore (add: data/*.sqlite, data/raw/).

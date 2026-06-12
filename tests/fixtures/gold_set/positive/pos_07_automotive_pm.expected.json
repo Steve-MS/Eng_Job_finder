@@ -1,0 +1,30 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Coventry",
+    "day_rate_min": 580.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 24,
+    "start_date": "2026-07-20",
+    "asap_flag": false,
+    "sector": "automotive",
+    "remote_policy": "onsite"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "automotive",
+    "difficulty": "structured",
+    "notes": "Automotive EV powertrain thermal management — mechanical domain (HVAC, cooling circuits). All fields explicit. 6 months = 26 weeks."
+  }
+}

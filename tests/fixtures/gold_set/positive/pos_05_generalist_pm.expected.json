@@ -1,0 +1,30 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Manchester",
+    "day_rate_min": 520.0,
+    "day_rate_max": 580.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": null,
+    "contract_type": "contract",
+    "duration_weeks": 24,
+    "start_date": "2026-07-28",
+    "asap_flag": false,
+    "sector": "process",
+    "remote_policy": "onsite"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "process",
+    "difficulty": "structured",
+    "notes": "Rate is a range, not single value. IR35 TBC = undetermined. Process plant = mechanical domain. Explicit start date from prose. 6 months = 26 weeks."
+  }
+}

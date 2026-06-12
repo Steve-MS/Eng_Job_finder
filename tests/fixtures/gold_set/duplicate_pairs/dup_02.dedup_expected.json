@@ -1,0 +1,24 @@
+{
+  "pair_id": "dup_02",
+  "files": ["dup_02a.json", "dup_02b.json"],
+  "should_merge": true,
+  "merge_signals": {
+    "title_jw_similarity": 0.82,
+    "same_agency": true,
+    "same_location_bucket": "Aberdeen",
+    "rate_overlap_pct": 75.0,
+    "days_between_posts": 3
+  },
+  "canonical_source": "reed",
+  "canonical_fields": {
+    "day_rate_min": 780.0,
+    "day_rate_max": 820.0,
+    "ir35_status": "outside",
+    "location_normalized": "Aberdeen",
+    "agency": "Brunel",
+    "duration_weeks": 39,
+    "start_date": null,
+    "asap_flag": true
+  },
+  "notes": "Same Brunel offshore PM role. Reed and Energy Jobline, 3 days apart. Rate slightly different (780-820 vs 800) but 800 is within the 780-820 band (75% overlap by range). Agency, location, duration, ASAP all match. Titles differ but JW ~0.82. Canonical = Reed (widest rate range)."
+}

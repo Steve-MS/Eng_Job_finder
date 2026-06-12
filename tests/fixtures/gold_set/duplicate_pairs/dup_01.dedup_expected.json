@@ -1,0 +1,23 @@
+{
+  "pair_id": "dup_01",
+  "files": ["dup_01a.json", "dup_01b.json"],
+  "should_merge": true,
+  "merge_signals": {
+    "title_jw_similarity": 0.87,
+    "same_agency": true,
+    "same_location_bucket": "Leeds",
+    "rate_overlap_pct": 100.0,
+    "days_between_posts": 1
+  },
+  "canonical_source": "reed",
+  "canonical_fields": {
+    "day_rate_min": 695.0,
+    "day_rate_max": 705.0,
+    "ir35_status": "outside",
+    "location_normalized": "Leeds",
+    "agency": "Rullion",
+    "duration_weeks": 26,
+    "start_date": "2026-07-14"
+  },
+  "notes": "Same Rullion Rail PM role posted 1 day apart on Reed and Totaljobs. Titles differ (JW ~0.87). Rate nearly identical (695-705 vs 700 \u2014 full overlap). Agency, location, start date, duration all match. Should merge."
+}

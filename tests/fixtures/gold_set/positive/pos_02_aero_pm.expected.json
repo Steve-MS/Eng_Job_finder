@@ -1,0 +1,30 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Bristol",
+    "day_rate_min": 650.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 48,
+    "start_date": "2026-08-03",
+    "asap_flag": false,
+    "sector": "aerospace",
+    "remote_policy": "onsite"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "aerospace",
+    "difficulty": "structured",
+    "notes": "Aerostructures modification — mech discipline clear. All fields explicit. 12 months = 52 weeks."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Sheffield",
+    "day_rate_min": 620.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 20,
+    "start_date": null,
+    "asap_flag": true,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "edge_case",
+    "difficulty": "asap_start_date",
+    "tricky_fields": [
+      "start_date",
+      "asap_flag"
+    ],
+    "notes": "Start date is 'ASAP' / 'immediate'. asap_flag must be true, start_date must be null (not parseable to ISO date). Duration stated as '5-6 months' — use midpoint ~26 weeks. Should PASS all filters."
+  }
+}

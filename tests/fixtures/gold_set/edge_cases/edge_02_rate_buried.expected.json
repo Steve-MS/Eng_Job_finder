@@ -1,0 +1,36 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Southampton",
+    "day_rate_min": 650.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 30,
+    "start_date": null,
+    "asap_flag": false,
+    "sector": "maritime"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "edge_case",
+    "difficulty": "rate_in_prose",
+    "tricky_fields": [
+      "day_rate_min",
+      "day_rate_max",
+      "rate_period",
+      "rate_currency",
+      "ir35_status",
+      "duration_weeks"
+    ],
+    "notes": "salary_raw is null. Rate only in description prose: 'six hundred and fifty pounds per day'. Requires LLM fallback or sophisticated regex for number-word conversion. Start date is vague ('mid-September 2026') — should yield null start_date. Should PASS all filters."
+  }
+}

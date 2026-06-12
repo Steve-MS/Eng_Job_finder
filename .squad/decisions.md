@@ -68,4 +68,52 @@ Authoritative decision ledger for the team. Append-only. Newest at the bottom.
 
 ---
 
+### 2026-06-12: Architecture Finalisation — 7-Source MVP with Scheduler
+**By:** Tommy (Lead)
+**Status:** Decision (binding)
+**What:** Scheduler (Windows Task Scheduler, every Friday 17:00 BST), per-source crawl-delay registry in config.toml (Reed 0s, Totaljobs/CWJobs 3s, RailwayPeople/Energy Jobline 10s, The Engineer Jobs 5s, Aviation Job Search 3s), StepStone parameterised adapter (Totaljobs + CWJobs config-driven, single class), Jobiqo two separate adapters (RailwayPeople Next.js JSON vs Energy Jobline Drupal HTML), Cloudflare two-phase for The Engineer Jobs (httpx phase A with browser headers, Playwright fallback phase B), secret management via `.env` + python-dotenv, sector as first-class enum field (10 values: rail, aerospace, defence, energy, nuclear, construction, maritime, automotive, process, generalist), Playwright conditionally approved for The Engineer Jobs only. MVP: all 7 sources live with acceptance gates, weekly scheduled delivery, structured extraction + sector tagging, deduplicated Markdown report. Sprint plan: 12 work items (Michael 7 adapters + orchestrator, Ada extraction + storage, Polly reporter, Arthur tests).
+**Why:** Finalises all architectural unknowns (scheduler, vertical source patterns, secrets, sector handling). Enables parallel work without re-design.
+
+---
+
+### 2026-06-12: Decision: Scaffold Stack Choices
+**By:** Michael (Backend / Scraping)
+**Status:** Implemented and verified
+**What:** Build backend: hatchling (PEP 517, zero-config for src/ layout). TOML: tomllib stdlib (Python 3.12+, no extra dep). CLI: argparse stdlib (minimal footprint). HTML parsing: selectolax (5–10× faster than BeautifulSoup). Async HTTP: httpx.AsyncClient (consistent API/HTML client, better timeout/retry). Secrets: python-dotenv + .env (dev UX, git-ignored). Config file: config.toml flat [sources.<name>] tables (named-key lookup, human-editable). These choices are binding for all seven adapters.
+**Why:** Establishes defaults for team. Prevents duplicate discussions on standard tooling.
+
+---
+
+### 2026-06-12: CLI `report` Subcommand Required
+**By:** Polly (Reporting & Domain)
+**Status:** Request — awaiting Michael implementation
+**What:** Wire `src/mechpm/reporter/render_weekly` into CLI via `python -m mechpm report --week YYYY-MM-DD [--output PATH]`. Loads NormalizedListing records from DB whose discovered_at/last_seen_at fall within the week window. Calls render_weekly with RunMetadata and output path. No new deps required.
+**Why:** Reporter module complete and smoke-tested; ready for CLI integration.
+
+---
+
+### 2026-06-12: Ada Dependency Additions
+**By:** Ada (Data Extraction)
+**Status:** Flagged for Michael (pyproject.toml owner)
+**What:** Add two runtime deps: rapidfuzz >=3.0 (Jaro-Winkler title-similarity for dedup, hard production dep but silent graceful degrade), openai >=1.0 (LLM-fallback extractor, soft dep, only required if MECHPM_LLM_FALLBACK=1 env var set). Both Windows-native, no native build tools required.
+**Why:** Enable dedup and LLM extraction pipeline.
+
+---
+
+### 2026-06-12: arthur-test-deps.md — Test Dependency Request
+**By:** Arthur (QA)
+**Status:** Flagged for Michael (pyproject.toml owner)
+**What:** Add test deps under [project.optional-dependencies] dev: pytest >=8.2, pytest-asyncio >=0.24, pytest-cov >=5.0, jsonschema >=4.22. Configure [tool.pytest.ini_options] with asyncio_mode = "auto", testpaths = ["tests"], markers including "slow". These are dev-only, not needed for production package.
+**Why:** Enable test collection and execution for 84+ test cases with coverage reporting.
+
+---
+
+### 2026-06-12: MVP shape — full 7-source coverage + scheduled weekly run from day one
+**By:** Steve (via Squad coordinator)
+**Status:** Directive
+**What:** Build to all 7 Tier-1 sources (Reed, Totaljobs, CWJobs, RailwayPeople, Energy Jobline, The Engineer Jobs, Aviation Job Search) AND ship the weekly scheduler from day one — not v0.2. This overrides Tommy's lean "2 sources + manual CLI" MVP cut. Implications: Tommy finalises StepStone/Jobiqo patterns, Michael builds adapters in bulk, scheduler becomes v0.1 architecture decision, Arthur's acceptance gates apply to all 7, Ada treats sector as first-class schema field.
+**Why:** User directive — get usable coverage and recurring delivery in v0.1 rather than iterating to it.
+
+---
+
 

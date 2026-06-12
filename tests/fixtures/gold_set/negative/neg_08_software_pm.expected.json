@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "London",
+    "day_rate_min": 650.0,
+    "day_rate_max": 650.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 52,
+    "start_date": "2026-08-03",
+    "asap_flag": false,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": false,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "not_mech_eng_domain",
+    "fail_filter": "mech_filter",
+    "notes": "Software/cloud PM. No mechanical engineering content whatsoever (AWS, SaaS, microservices). Must fail mech_filter only."
+  }
+}

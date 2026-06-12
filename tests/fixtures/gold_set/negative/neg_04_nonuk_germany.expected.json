@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "DE",
+    "location_normalized": "Munich",
+    "day_rate_min": 650.0,
+    "day_rate_max": 650.0,
+    "rate_currency": "EUR",
+    "rate_period": "day",
+    "ir35_status": "not_stated",
+    "contract_type": "contract",
+    "duration_weeks": 52,
+    "start_date": "2026-09-07",
+    "asap_flag": false,
+    "sector": "automotive"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": false,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "non_uk_location",
+    "fail_filter": "uk_filter",
+    "notes": "Munich, Germany. country=DE. Rate in EUR. No IR35 applicable. Must fail uk_filter only."
+  }
+}

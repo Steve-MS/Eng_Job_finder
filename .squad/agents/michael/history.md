@@ -39,6 +39,17 @@
 | **The Engineer Jobs** | **HTML scrape** — Cloudflare-managed robots.txt; `User-agent: *` `Allow: /`. URL: `https://jobs.theengineer.co.uk/jobs/project-manager/?contract=contract`. Confirmed search returns results. | Cloudflare blocks named AI bots (GPTBot etc.) but explicitly allows `User-agent: *`. Use polite User-Agent string. Mark Allen Group platform. |
 | **Aviation Job Search** | **HTML scrape** — robots.txt allows all except `/api/*` and action paths. URL: `https://www.aviationjobsearch.com/en-GB/jobs?title=project+manager&job_categories=Engineering`. | Contract filter param: `contract_types=2`. Standard HTML, no JS rendering required. Confirm param values via manual probe before build. |
 
+### 2026-06-12: Vertical-specialist source addendum
+
+**Tier-1 picks from vertical research (addendum to generalist shortlist):**
+
+| Source | Strategy | Key fact |
+|---|---|---|
+| **RailwayPeople.com** | **HTML GET → parse `__NEXT_DATA__` JSON blob** — Next.js SSR (Jobiqo platform). URL: `https://www.railwaypeople.com/jobs?keywords=project+manager&jobtype=contract`. robots.txt: `Allow: /`, `Crawl-delay: 10`. | Meta description in HTML confirmed "308 Jobs" for PM+contract. No Playwright needed — listings embedded in `window.__NEXT_DATA__`. Enforce 10 s delay. |
+| **Energy Jobline** | **HTML scrape** — Jobiqo/Drupal platform. URL: `https://www.energyjobline.com/jobs?keywords=project+manager+mechanical&location=United+Kingdom&contract_type=contract`. robots.txt: `Crawl-delay: 10`, disallows `/search/` (legacy path) and admin paths, but `/jobs?...` confirmed working. | Jobiqo platform — same as RailwayPeople. Possible shared adapter (different HTML structure from Next.js variant, but same query param conventions). Energy + O&G + renewables + nuclear all on one board. |
+| **The Engineer Jobs** | **HTML scrape** — Cloudflare-managed robots.txt; `User-agent: *` `Allow: /`. URL: `https://jobs.theengineer.co.uk/jobs/project-manager/?contract=contract`. Confirmed search returns results. | Cloudflare blocks named AI bots (GPTBot etc.) but explicitly allows `User-agent: *`. Use polite User-Agent string. Mark Allen Group platform. |
+| **Aviation Job Search** | **HTML scrape** — robots.txt allows all except `/api/*` and action paths. URL: `https://www.aviationjobsearch.com/en-GB/jobs?title=project+manager&job_categories=Engineering`. | Contract filter param: `contract_types=2`. Standard HTML, no JS rendering required. Confirm param values via manual probe before build. |
+
 **Sectors with no specialist board recommended for Tier 1:**
 - **Automotive** — PM contracts cluster on generalist boards + agencies. JustAutomotive exists but volume too low for MVP.
 - **Maritime** — Very low UK mech-eng PM contract volume. Skip for MVP.
@@ -48,6 +59,11 @@
 - **Rail (RailwayPeople):** Next.js pages — page source includes `<script id="__NEXT_DATA__">` JSON blob. Parse this directly; much cleaner than CSS-selector scraping rendered HTML. Respect `Crawl-delay: 10`.
 - **Energy (Energy Jobline):** robots.txt disallows `/search/` (the old Drupal search) but `/jobs?keywords=...` is the correct modern path and is NOT disallowed. Don't confuse the two.
 - **Aerospace (Aviation Job Search):** `/api/*` is disallowed — do NOT try to call their internal API. Use the public search HTML page only.
+
+---
+
+## 2026-06-12: Implementation Sprint 1 Complete — Cross-Team Sync
+**Sprint outcome:** Tommy (architecture), Michael (scaffold + Reed), Ada (extraction + storage), Polly (reporter), Arthur (tests) all delivered. Architecture finalisation is binding. Full project scaffold + 28-field schema + 3-tier extraction + dedup + SQLite + Markdown reporter + 84-test suite complete. Orchestration logs: `.squad/orchestration-log/2026-06-12T{17:30,18:30}Z-{agent}.md`. Session log: `.squad/log/2026-06-12T1830-implementation-sprint-1.md`. **⚠️ Arthur surfaced 2 real defects for Ada's immediate attention:** (1) UAE/Dubai location filter rejects valid expat-PM listings (medium, ~2% impact), (2) "civil engineering" keyword false-fires mech-domain filter (high, ~8% false positives, affects dedup precision). All acceptance criteria gates documented. Design locked; implementation ready to proceed to Sprint 2 (Michael's 6 remaining adapters).
 - **Construction (Careerstructure):** StepStone platform (adapter reuse from Totaljobs/CWJobs). Complex robots.txt but no blanket `Disallow: /` for `User-agent: *`. The `Disallow: /*&page=*` rule blocks `&page=N` pagination — use `?page=N` (leading `?`) if pagination is needed, or reverse-sort and stop on seen IDs.
 - **Cross-sector (The Engineer Jobs):** Cloudflare on robots.txt delivery. Assume same Cloudflare fronting on job pages — standard browser-like headers required. Confirm 200 response in adapter spike before committing.
 - **Jobiqo platform (RailwayPeople + Energy Jobline):** Confirm whether both use identical `__NEXT_DATA__` structure. Energy Jobline appeared Drupal-based in probe — may be an older Jobiqo theme without Next.js. Treat as separate adapters until confirmed.
@@ -56,6 +72,40 @@
 Reed, Totaljobs, CWJobs, RailwayPeople, Energy Jobline, The Engineer Jobs, Aviation Job Search
 
 **DefenceJobs.co.uk:** `User-agent: * Disallow: /` — fully hostile. Do not implement.
+
+---
+
+## 2026-06-12: Sprint #1 + #2 — Scaffold + Reed Adapter Shipped
+
+### Reed query string (baked in, tunable via config.toml)
+```
+keywords = "project manager mechanical engineering"
+locationName = "UK"
+contract = true
+resultsToTake = 100
+resultsToSkip = 0, 100, 200, …  (pagination)
+```
+Rationale: broad enough to catch all mechanical-discipline PM contracts (nuclear, rail, oil & gas, aerospace) via the single generalist term. `contract=true` is a Reed filter enum, not a freetext param. Can be narrowed in config.toml without code changes.
+
+### Reed pagination + throttle behaviour
+- Reed returns a `results` JSON array. Empty array = no more pages.
+- When `len(results) < resultsToTake`, that is the final page — no extra request needed.
+- Safety cap of 500 listings/run avoids unbounded runs if query is too broad.
+- Rate limit: 10 req/min (free tier) → 6 s sleep (`_PAGE_DELAY_SECONDS`) between successive page requests *inside* `fetch()`. The orchestrator `crawl_delay` for Reed is 0 (no extra inter-source delay required).
+- The Reed API does **not** expose a `postedAfter` query parameter. `since` filtering is applied client-side on `posted_at` after each job is mapped. Future work: confirm whether `distanceFromLocation` or date fields exist in advanced API.
+
+### Reed date formats observed
+Reed's `date` field returns `"DD/MM/YYYY"` in standard responses. The `_parse_reed_date()` helper tries three formats (`%d/%m/%Y`, `%Y-%m-%dT%H:%M:%S`, `%Y-%m-%d`) as a defensive measure for schema drift.
+
+### Package layout decisions baked in
+- **tomllib** (stdlib, Python 3.11+) used instead of `tomli` third-party package — no extra dependency since we require Python ≥3.12.
+- **argparse** (stdlib) used instead of Click — keeps deps minimal.
+- **hatchling** chosen as build backend (modern, zero-config for `src/` layout).
+- **selectolax** declared as HTML-parsing dep for future HTML adapters; much faster than BeautifulSoup for large listing pages.
+- `config.toml` uses `[sources.<name>]` flat tables (not `[[sources]]` array-of-tables) for named-source lookup without iteration.
+- Adapter `crawl_delay` is inter-*source* delay managed by the orchestrator. Intra-source page delays are the adapter's own responsibility (Reed: 6 s; HTML adapters: per robots.txt).
+- `RawListing.employer` carries the Reed `employerName` (which may be an agency name when a recruiter posts). `agency` is `None` for Reed; future HTML adapters can populate it when clearly labelled.
+- `metadata` dict carries Reed-specific extras: `currency`, `salary_type` (per day / per annum / per hour — critical for day-rate detection by Ada's extractor), `applications`, `expiration_date`.
 
 ---
 

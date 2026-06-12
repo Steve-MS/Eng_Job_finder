@@ -1,0 +1,79 @@
+{
+  "contract_filter": {
+    "counts": {
+      "tp": 20,
+      "fp": 0,
+      "tn": 2,
+      "fn": 0
+    },
+    "total": 22,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "uk_filter": {
+    "counts": {
+      "tp": 20,
+      "fp": 1,
+      "tn": 1,
+      "fn": 0
+    },
+    "total": 22,
+    "precision": 0.9523809523809523,
+    "recall": 1.0
+  },
+  "pm_filter": {
+    "counts": {
+      "tp": 20,
+      "fp": 0,
+      "tn": 2,
+      "fn": 0
+    },
+    "total": 22,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "mech_filter": {
+    "counts": {
+      "tp": 19,
+      "fp": 0,
+      "tn": 2,
+      "fn": 1
+    },
+    "total": 22,
+    "precision": 1.0,
+    "recall": 0.95
+  },
+  "dedup_merge": {
+    "counts": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0
+    },
+    "total": 0,
+    "precision": null,
+    "recall": null
+  },
+  "extraction": {
+    "counts": {
+      "tp": 121,
+      "fp": 0,
+      "tn": 0,
+      "fn": 2
+    },
+    "total": 123,
+    "precision": 1.0,
+    "recall": 0.983739837398374
+  },
+  "adapter": {
+    "counts": {
+      "tp": 10,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0
+    },
+    "total": 10,
+    "precision": 1.0,
+    "recall": 1.0
+  }
+}

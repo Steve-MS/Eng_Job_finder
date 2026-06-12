@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "Leeds",
+    "day_rate_min": null,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "annum",
+    "ir35_status": "not_stated",
+    "contract_type": "perm",
+    "duration_weeks": null,
+    "start_date": null,
+    "asap_flag": false,
+    "sector": "rail"
+  },
+  "filters": {
+    "contract_filter": false,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "perm_job",
+    "fail_filter": "contract_filter",
+    "notes": "Permanent Network Rail staff appointment. Salary per annum. contract_type_raw='Permanent'. Must fail contract_filter only."
+  }
+}

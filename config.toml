@@ -1,0 +1,35 @@
+# Mech-PM-Finder source configuration
+# Crawl-delay is seconds the orchestrator sleeps between adapters.
+# Additional intra-source page delays are handled inside each adapter.
+
+[sources.reed]
+enabled = true
+crawl_delay = 0
+keywords = "project manager mechanical engineering"
+location = "UK"
+results_to_take = 100
+safety_cap = 500
+
+[sources.totaljobs]
+enabled = false
+crawl_delay = 3
+
+[sources.cwjobs]
+enabled = false
+crawl_delay = 3
+
+[sources.railwaypeople]
+enabled = false
+crawl_delay = 10
+
+[sources.energy_jobline]
+enabled = false
+crawl_delay = 10
+
+[sources.the_engineer]
+enabled = false
+crawl_delay = 5
+
+[sources.aviation_job_search]
+enabled = false
+crawl_delay = 3

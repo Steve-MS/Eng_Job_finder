@@ -1,0 +1,30 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "London",
+    "day_rate_min": 550.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "inside",
+    "contract_type": "contract",
+    "duration_weeks": 32,
+    "start_date": null,
+    "asap_flag": true,
+    "sector": "construction",
+    "remote_policy": "onsite"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "construction",
+    "difficulty": "structured",
+    "notes": "Inside IR35 explicitly stated in title and body. MEP (mechanical + electrical) domain. Immediate start = asap_flag=true. 8 months ≈ 35 weeks."
+  }
+}
