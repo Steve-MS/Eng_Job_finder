@@ -54,15 +54,16 @@ _SKIP_BASE = pytest.mark.skipif(
 
 # ---------------------------------------------------------------------------
 # Adapter registry (name → module path)
+# Keys match adapter.name class attributes and config.toml source keys.
 # ---------------------------------------------------------------------------
 _ADAPTER_REGISTRY = {
     "reed": "mechpm.adapters.reed",
     "totaljobs": "mechpm.adapters.stepstone",
     "cwjobs": "mechpm.adapters.stepstone",
     "railwaypeople": "mechpm.adapters.railwaypeople",
-    "energyjobline": "mechpm.adapters.energy_jobline",
-    "theengineer": "mechpm.adapters.the_engineer",
-    "aviationjobsearch": "mechpm.adapters.aviation_job_search",
+    "energy_jobline": "mechpm.adapters.energy_jobline",
+    "the_engineer": "mechpm.adapters.the_engineer",
+    "aviation_job_search": "mechpm.adapters.aviation_job_search",
 }
 
 # ---------------------------------------------------------------------------
@@ -117,49 +118,31 @@ def test_adapter_module_importable(adapter_name, metrics):
 
 @_SKIP_BASE
 @pytest.mark.parametrize("adapter_name", list(_ADAPTER_REGISTRY.keys()))
-def test_adapter_has_required_interface(adapter_name):
+def test_adapter_has_required_interface(adapter_name, all_adapters_by_name):
     """
     Assert each adapter exposes the SourceAdapter ABC contract:
       - name (str)
       - crawl_delay (numeric)
       - fetch (callable / coroutine function)
+
+    Adapters are obtained via mechpm.cli._build_adapters(synthetic_settings) so
+    that the real production construction path (api_key, domain, etc.) is
+    exercised instead of bare no-arg instantiation.
     """
     import importlib
 
     module_path = _ADAPTER_REGISTRY[adapter_name]
     try:
-        mod = importlib.import_module(module_path)
+        importlib.import_module(module_path)
     except ImportError:
         pytest.skip(f"{module_path} not yet implemented")
 
-    # Find the adapter class in the module
-    adapter_class = None
-    for attr_name in dir(mod):
-        attr = getattr(mod, attr_name)
-        if (
-            isinstance(attr, type)
-            and SourceAdapter is not None
-            and issubclass(attr, SourceAdapter)
-            and attr is not SourceAdapter
-        ):
-            adapter_class = attr
-            break
-
-    if adapter_class is None:
-        # Try instantiating a conventionally named class
-        candidate = getattr(mod, f"{adapter_name.title()}Adapter", None)
-        if candidate is None:
-            pytest.fail(f"No SourceAdapter subclass found in {module_path}")
-        adapter_class = candidate
-
-    # Instantiate (may need config; pass minimal config if required)
-    try:
-        instance = adapter_class()
-    except TypeError:
-        try:
-            instance = adapter_class(name=adapter_name)
-        except Exception as exc:
-            pytest.skip(f"Cannot instantiate {adapter_class.__name__}: {exc}")
+    instance = all_adapters_by_name.get(adapter_name)
+    if instance is None:
+        pytest.fail(
+            f"_build_adapters produced no adapter with name={adapter_name!r}. "
+            f"Available names: {sorted(all_adapters_by_name)}"
+        )
 
     assert hasattr(instance, "name"), "Adapter missing 'name' attribute"
     assert hasattr(instance, "crawl_delay"), "Adapter missing 'crawl_delay' attribute"

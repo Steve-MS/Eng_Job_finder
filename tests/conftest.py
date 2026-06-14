@@ -283,6 +283,75 @@ def sample_normalized_listing() -> Callable[..., Any]:
 
 
 # ---------------------------------------------------------------------------
+# Synthetic Settings fixture — drives adapter smoke tests via _build_adapters()
+# ---------------------------------------------------------------------------
+try:
+    from mechpm.config import Settings, SourceConfig  # type: ignore
+
+    _CONFIG_AVAILABLE = True
+except ImportError:
+    _CONFIG_AVAILABLE = False
+    Settings = None  # type: ignore
+    SourceConfig = None  # type: ignore
+
+
+@pytest.fixture(scope="session")
+def synthetic_settings():
+    """
+    Minimal-valid Settings object for all 7 sources.
+
+    Lets _build_adapters(settings) instantiate every adapter without real
+    credentials or a live config.toml.  Reed uses a placeholder api_key;
+    StepStone sources carry domain/search_path in SourceConfig extra fields.
+    """
+    if not _CONFIG_AVAILABLE:
+        pytest.skip("mechpm.config not available — skipping adapter fixtures")
+    return Settings(
+        reed_api_key="test-key-placeholder",
+        sources={
+            "reed": SourceConfig(
+                enabled=True,
+                crawl_delay=0,
+                keywords="x",
+                location="UK",
+                results_to_take=1,
+                safety_cap=1,
+            ),
+            "totaljobs": SourceConfig(
+                enabled=True,
+                crawl_delay=0,
+                domain="www.totaljobs.com",
+                search_path="/jobs/x",
+            ),
+            "cwjobs": SourceConfig(
+                enabled=True,
+                crawl_delay=0,
+                domain="www.cwjobs.co.uk",
+                search_path="/jobs/x",
+            ),
+            "railwaypeople": SourceConfig(enabled=True, crawl_delay=0),
+            "energy_jobline": SourceConfig(enabled=True, crawl_delay=0),
+            "the_engineer": SourceConfig(enabled=True, crawl_delay=0),
+            "aviation_job_search": SourceConfig(enabled=True, crawl_delay=0),
+        },
+    )
+
+
+@pytest.fixture(scope="session")
+def all_adapters_by_name(synthetic_settings):
+    """
+    Build all adapters via _build_adapters(synthetic_settings) and return a
+    dict keyed by adapter.name.  Session-scoped so construction runs once.
+    """
+    try:
+        from mechpm.cli import _build_adapters  # type: ignore
+    except ImportError:
+        pytest.skip("mechpm.cli._build_adapters not available — skipping")
+    adapters = _build_adapters(synthetic_settings)
+    return {a.name: a for a in adapters}
+
+
+# ---------------------------------------------------------------------------
 # Gold-set helpers (usable from any test module)
 # ---------------------------------------------------------------------------
 GOLD_SET_DIR = Path(__file__).parent / "fixtures" / "gold_set"
