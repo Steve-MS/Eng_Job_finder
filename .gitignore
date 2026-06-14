@@ -11,5 +11,6 @@ build/
 *.sqlite
 *.db
 data/raw/
+data/quarantine/
 reports/*.md
 !reports/2026-06-12-SAMPLE.md

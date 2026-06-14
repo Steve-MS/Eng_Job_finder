@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS normalized_listings (
     description_clean   TEXT,
     discovered_at       TEXT NOT NULL,
     last_seen_at        TEXT NOT NULL,
+    first_seen_at       TEXT,
+    times_seen          INTEGER NOT NULL DEFAULT 1,
     is_new_listing      INTEGER NOT NULL DEFAULT 0,
     sanity_flags_json   TEXT NOT NULL DEFAULT '[]'
 );
@@ -133,6 +135,100 @@ class Repo:
             self._conn.execute(_DDL_RAW_LISTINGS)
             self._conn.execute(_DDL_NORMALIZED_LISTINGS)
             self._conn.execute(_DDL_DEDUP_GROUPS)
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """Idempotently add new columns to normalized_listings if absent."""
+        cols = {
+            row[1]
+            for row in self._conn.execute("PRAGMA table_info(normalized_listings)")
+        }
+        with self._conn:
+            if "first_seen_at" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE normalized_listings ADD COLUMN first_seen_at TEXT"
+                )
+                # Backfill existing rows using discovered_at as proxy.
+                self._conn.execute(
+                    "UPDATE normalized_listings SET first_seen_at = discovered_at"
+                    " WHERE first_seen_at IS NULL"
+                )
+            if "times_seen" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE normalized_listings"
+                    " ADD COLUMN times_seen INTEGER NOT NULL DEFAULT 1"
+                )
+
+    def upsert_normalized(self, listings: list[NormalizedListing]) -> int:
+        """Upsert normalised listings preserving first_seen_at on conflicts.
+
+        For new rows: sets first_seen_at = discovered_at, times_seen = 1.
+        For existing rows: increments times_seen, updates last_seen_at only.
+
+        Returns the count of rows affected (inserted + updated).
+        """
+        affected = 0
+        now_str = _dt_str(datetime.now(timezone.utc))
+        with self._conn:
+            for n in listings:
+                first_seen = _dt_str(n.discovered_at) or now_str
+                cur = self._conn.execute(
+                    """
+                    INSERT INTO normalized_listings
+                      (listing_id, source, source_listing_id, source_url,
+                       source_urls_json, title, employer, agency,
+                       location, location_normalized, country,
+                       posted_at, start_date_raw, start_date, asap_flag,
+                       duration_raw, duration_weeks,
+                       day_rate_min, day_rate_max, rate_currency, rate_period,
+                       ir35_status, contract_type, remote_policy, sector,
+                       description_raw, description_clean,
+                       discovered_at, last_seen_at,
+                       first_seen_at, times_seen,
+                       is_new_listing, sanity_flags_json)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
+                    ON CONFLICT(listing_id) DO UPDATE SET
+                      last_seen_at = excluded.last_seen_at,
+                      times_seen   = times_seen + 1
+                    """,
+                    (
+                        n.listing_id,
+                        n.source,
+                        n.source_listing_id,
+                        n.source_url,
+                        json.dumps(n.source_urls),
+                        n.title,
+                        n.employer,
+                        n.agency,
+                        n.location,
+                        n.location_normalized,
+                        n.country,
+                        _dt_str(n.posted_at),
+                        n.start_date_raw,
+                        n.start_date.isoformat() if n.start_date else None,
+                        int(n.asap_flag),
+                        n.duration_raw,
+                        n.duration_weeks,
+                        n.day_rate_min,
+                        n.day_rate_max,
+                        n.rate_currency,
+                        n.rate_period,
+                        n.ir35_status,
+                        n.contract_type,
+                        n.remote_policy,
+                        n.sector,
+                        n.description_raw,
+                        n.description_clean,
+                        _dt_str(n.discovered_at),
+                        _dt_str(n.last_seen_at),
+                        first_seen,
+                        int(n.is_new_listing),
+                        json.dumps(n.sanity_flags),
+                    ),
+                )
+                affected += cur.rowcount
+        logger.debug("upsert_normalized: %d row(s) affected from %d input(s)", affected, len(listings))
+        return affected
 
     # ------------------------------------------------------------------
     # Insert raw
@@ -261,6 +357,40 @@ class Repo:
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------
+
+    def get_listings_since(
+        self,
+        since_date: date,
+        today: date | None = None,
+    ) -> list[NormalizedListing]:
+        """Return listings whose last_seen_at >= since_date.
+
+        Sets is_new_listing=True on any listing where first_seen_at matches today
+        (i.e., first seen on today's run).
+        """
+        _today = today or date.today()
+        today_str = _today.isoformat()
+        rows = self._conn.execute(
+            "SELECT * FROM normalized_listings"
+            " WHERE last_seen_at >= ? ORDER BY last_seen_at DESC",
+            (since_date.isoformat(),),
+        ).fetchall()
+        listings: list[NormalizedListing] = []
+        for row in rows:
+            n = _row_to_normalized(row)
+            first_seen = dict(row).get("first_seen_at")
+            if first_seen and first_seen[:10] >= today_str:
+                n = n.model_copy(update={"is_new_listing": True})
+            listings.append(n)
+        return listings
+
+    def get_times_seen(self, listing_id: str) -> int | None:
+        """Return the times_seen value for a listing_id, or None if not found."""
+        row = self._conn.execute(
+            "SELECT times_seen FROM normalized_listings WHERE listing_id = ?",
+            (listing_id,),
+        ).fetchone()
+        return row[0] if row else None
 
     def get_recent_normalized(self, within_days: int = 7) -> list[NormalizedListing]:
         """Return normalised listings discovered within the last *within_days* days."""

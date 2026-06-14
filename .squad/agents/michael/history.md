@@ -111,3 +111,47 @@ Reed's `date` field returns `"DD/MM/YYYY"` in standard responses. The `_parse_re
 
 ## 2026-06-12: MVP Plan Fan-Out Complete
 **Team Sync:** MVP plan fan-out completed on 2026-06-12T16:30Z. All agents delivered decisions. Inbox files merged into `.squad/decisions.md` (the authoritative ledger). Orchestration logs written. Next cycle: implement 7-source adapters per Tommy's contract. See `.squad/decisions.md` for consolidated architecture, sources, schema, report format, and acceptance criteria. All team members synchronized; design is locked in.
+
+---
+
+## Learnings
+
+### 2026-06-14: Pipeline Wiring Sprint — Tommy's Spec Implemented
+
+**What I built:**
+
+| Module | What changed |
+|---|---|
+| `src/mechpm/pipeline.py` | New wiring module — `process_and_report()` + `PipelineResult` dataclass |
+| `src/mechpm/orchestrator.py` | Now emits `data/raw/{date}/run_manifest.json` after each run |
+| `src/mechpm/storage/sqlite.py` | Added `first_seen_at` + `times_seen` columns; idempotent migration; new `upsert_normalized()` with `ON CONFLICT DO UPDATE`; `get_listings_since()` query |
+| `src/mechpm/reporter/generate.py` | New entry point `generate_report()` wrapping `render_weekly()` — reads manifest, marks 🆕 listings |
+| `src/mechpm/reporter/__init__.py` | Exports `generate_report` |
+| `src/mechpm/cli.py` | `run-all` now wires full pipeline; `--skip-fetch`, `--since`, `--skip-report` flags added |
+| `tests/test_pipeline_e2e.py` | 7 integration tests: basic run, idempotency, quarantine |
+| `.gitignore` | Added `data/quarantine/` |
+
+**Live run counts (--skip-fetch on real railwaypeople.jsonl, 50 listings, 2026-06-14):**
+
+| Stage | Count |
+|---|---|
+| fetched | 50 |
+| extracted | 50 |
+| quarantined | 0 |
+| filtered_out | 47 |
+| deduped | 0 (rapidfuzz not installed — identity fallback) |
+| stored | 3 |
+| reported | True |
+
+High filter-out rate (47/50) is expected: the railwaypeople smoke run returned rail-generic listings (points operators, commercial managers, etc.), not mech-PM contracts. The 3 that passed were genuine PM/mechanical matches.
+
+**Test counts:** 88 → 95 passed (7 new e2e tests added, 0 previously passing tests broken).
+
+**Surprises / gotchas:**
+
+1. **Extractor interface** — `extract(raw)` is clean and predictable. Ada's extractor is robust; no ValidationErrors fired on the real JSONL.
+2. **Reporter entry point** — `render_weekly()` accepts `RunMetadata` + `listings` and is completely self-contained. I added `generate_report()` as the new entry point in `reporter/generate.py` rather than touching render logic. This respects the "do not modify Polly's render" constraint cleanly.
+3. **`INSERT OR REPLACE` vs `ON CONFLICT DO UPDATE`** — The existing `insert_normalized()` uses SQLite's `INSERT OR REPLACE` which deletes + reinserts on conflict, resetting `first_seen_at`. The new `upsert_normalized()` uses proper `ON CONFLICT(listing_id) DO UPDATE` to preserve `first_seen_at` while incrementing `times_seen`. Both coexist; pipeline uses `upsert_normalized()`.
+4. **`rapidfuzz` not in venv** — dedup falls back to identity (no-op). Noted for Scribe — should be added to pyproject.toml if not already there.
+5. **run.bat** — Already calls `python -m mechpm.cli run-all %*` (pass-through args); no change needed.
+

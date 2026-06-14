@@ -33,6 +33,8 @@ async def run_all(
     out_dir = DATA_ROOT / run_date
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    manifest_sources: list[dict[str, Any]] = []
+
     for idx, adapter in enumerate(adapters):
         t0 = time.monotonic()
         listings: list[RawListing] = []
@@ -61,13 +63,32 @@ async def run_all(
             summary["error"] = error_msg
         logger.info("run_summary %s", json.dumps(summary))
 
+        manifest_sources.append({
+            "name": adapter.name,
+            "count": len(listings),
+            "duration_ms": duration_ms,
+            "error": error_msg,
+        })
+
         results[adapter.name] = listings
         _persist_jsonl(out_dir, adapter.name, listings)
 
         if idx < len(adapters) - 1 and adapter.crawl_delay > 0:
             await asyncio.sleep(adapter.crawl_delay)
 
+    _write_manifest(out_dir, run_date, manifest_sources)
     return results
+
+
+def _write_manifest(out_dir: Path, run_date: str, sources: list[dict[str, Any]]) -> None:
+    """Write run_manifest.json summarising per-source fetch outcomes."""
+    manifest = {"run_date": run_date, "sources": sources}
+    manifest_path = out_dir / "run_manifest.json"
+    try:
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        logger.debug("run_manifest written to %s", manifest_path)
+    except Exception:
+        logger.exception("Failed to write run_manifest.json")
 
 
 def _persist_jsonl(out_dir: Path, source: str, listings: list[RawListing]) -> None:

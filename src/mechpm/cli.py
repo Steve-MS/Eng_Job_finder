@@ -3,16 +3,22 @@
 Usage:
     python -m mechpm.cli run-all
     python -m mechpm.cli run-all --source reed
+    python -m mechpm.cli run-all --skip-fetch
+    python -m mechpm.cli run-all --since 2026-06-07 --skip-report
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import sys
+from datetime import date, timedelta
+from pathlib import Path
 
 from mechpm.config import Settings
 from mechpm.orchestrator import run_all
+from mechpm.pipeline import process_and_report
 
 # Registry maps source name → factory function.
 # Add an entry here when a new adapter ships.
@@ -98,22 +104,71 @@ def cmd_run_all(args: argparse.Namespace) -> None:
     )
 
     settings = Settings.load()
-    adapters = _build_adapters(settings, source_filter=getattr(args, "source", None))
+    today = date.today().isoformat()
+    skip_fetch: bool = getattr(args, "skip_fetch", False)
+    skip_report: bool = getattr(args, "skip_report", False)
+    source_filter: str | None = getattr(args, "source", None)
 
-    if not adapters:
-        print(
-            "No enabled adapters found. "
-            "Check config.toml (enabled = true) and --source flag.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    # Parse --since (default: 7 days ago).
+    since_raw: str | None = getattr(args, "since", None)
+    if since_raw:
+        try:
+            since_date = date.fromisoformat(since_raw)
+        except ValueError:
+            print(f"--since must be YYYY-MM-DD, got '{since_raw}'", file=sys.stderr)
+            sys.exit(1)
+    else:
+        since_date = date.today() - timedelta(days=7)
 
-    results = asyncio.run(run_all(adapters))
+    manifest: dict | None = None
 
-    total = sum(len(v) for v in results.values())
-    print(f"\nRun complete — {total} listing(s) across {len(results)} source(s).")
-    for source, listings in results.items():
-        print(f"  {source}: {len(listings)} listing(s)")
+    if not skip_fetch:
+        adapters = _build_adapters(settings, source_filter=source_filter)
+        if not adapters:
+            print(
+                "No enabled adapters found. "
+                "Check config.toml (enabled = true) and --source flag.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        results = asyncio.run(run_all(adapters))
+        total = sum(len(v) for v in results.values())
+        print(f"\nFetch complete — {total} listing(s) across {len(results)} source(s).")
+        for source, listings in results.items():
+            print(f"  {source}: {len(listings)} listing(s)")
+
+        # Read the manifest that run_all just wrote.
+        manifest_path = Path("data/raw") / today / "run_manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+    else:
+        print(f"--skip-fetch: processing existing JSONL for {today}")
+        manifest_path = Path("data/raw") / today / "run_manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+    pipeline_result = process_and_report(
+        date_str=today,
+        since_date=since_date,
+        skip_report=skip_report,
+        manifest=manifest,
+    )
+
+    print(f"\nPipeline result:")
+    print(f"  fetched:      {pipeline_result.fetched}")
+    print(f"  extracted:    {pipeline_result.extracted}")
+    print(f"  quarantined:  {pipeline_result.quarantined}")
+    print(f"  filtered_out: {pipeline_result.filtered_out}")
+    print(f"  deduped:      {pipeline_result.deduped}")
+    print(f"  stored:       {pipeline_result.stored}")
+    print(f"  reported:     {pipeline_result.reported}")
 
 
 def main() -> None:
@@ -123,12 +178,33 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = subparsers.add_parser("run-all", help="Run all enabled source adapters")
+    run_parser = subparsers.add_parser(
+        "run-all",
+        help="Full pipeline: fetch → extract → filter → dedup → store → report",
+    )
     run_parser.add_argument(
         "--source",
         metavar="NAME",
         default=None,
         help="Run a single named adapter only (e.g. 'reed')",
+    )
+    run_parser.add_argument(
+        "--skip-fetch",
+        action="store_true",
+        default=False,
+        help="Skip fetching; process existing JSONL for today's date.",
+    )
+    run_parser.add_argument(
+        "--since",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help="Report window start date (default: 7 days ago). ISO date.",
+    )
+    run_parser.add_argument(
+        "--skip-report",
+        action="store_true",
+        default=False,
+        help="Stop after storage; skip report generation.",
     )
     run_parser.set_defaults(func=cmd_run_all)
 
