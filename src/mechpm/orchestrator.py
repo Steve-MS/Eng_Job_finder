@@ -92,10 +92,10 @@ def _write_manifest(out_dir: Path, run_date: str, sources: list[dict[str, Any]])
 
 
 def _persist_jsonl(out_dir: Path, source: str, listings: list[RawListing]) -> None:
-    """Append listings to data/raw/{date}/{source}.jsonl (creates file if absent)."""
+    """Write listings (overwrite) to data/raw/{date}/{source}.jsonl."""
     path = out_dir / f"{source}.jsonl"
     try:
-        with open(path, "a", encoding="utf-8") as fh:
+        with open(path, "w", encoding="utf-8") as fh:
             for listing in listings:
                 fh.write(listing.model_dump_json() + "\n")
         logger.debug("Persisted %d listing(s) to %s", len(listings), path)

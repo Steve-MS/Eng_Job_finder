@@ -224,5 +224,30 @@ HTTP Request: GET https://www.reed.co.uk/api/1.0/search?keywords=project+manager
 
 **Test results:** 128 passed (baseline 123 + 5 new Reed tests), 25 skipped, 0 failed
 
-**Live run after fix:** 29 contract listings fetched from Reed (UP from 0), matching expected behaviour. Pipeline extracted 79 total listings (all sources), stored 8 normalized records after filtering.
+---
+
+## 2026-06-15: JSONL Overwrite Policy + rapidfuzz Promoted to Core Dep
+
+**Task:** Implemented Tommy's spec `tommy-jsonl-policy-and-deps.md`.
+
+### Changes made
+
+| File | Change |
+|---|---|
+| `src/mechpm/orchestrator.py` | `_persist_jsonl` now opens in `"w"` mode (was `"a"`); docstring updated |
+| `pyproject.toml` | `rapidfuzz>=3.0` added to `[project.dependencies]` (was absent — fallback warning fired every run) |
+| `tests/test_orchestrator.py` | New file: regression test for overwrite + smoke tests for rapidfuzz |
+| `data/raw/2026-06-14/railwaypeople.jsonl` | Deleted (inflated from 3× calibration runs) |
+| `data/raw/2026-06-15/railwaypeople.jsonl` | Deleted (inflated), recreated fresh by verification runs |
+
+### Key learning: rapidfuzz dedup catches ghost duplicates that identity dedup misses
+
+The identity (content-hash) fallback misses ghost duplicates where the same listing appears with minor field variations across re-runs — e.g., slightly different `fetched_at` timestamps or whitespace. The Jaro-Winkler title similarity in rapidfuzz's dedup pipeline correctly identifies these as duplicates. This was confirmed during today's verification: with rapidfuzz installed, `deduped: 6` was reported (vs `deduped: 0` under identity fallback). Those 6 ghost duplicates would have inflated the report if rapidfuzz had not been available.
+
+### Live verification (2026-06-15)
+
+- **Two successive runs of `run-all --source railwaypeople`:** File size after 2nd run = 50,391 bytes (= exactly one run's output). Old appended file was 100,782 bytes (= 2× that). Overwrite confirmed working.
+- **rapidfuzz version installed:** 3.14.5
+- **Test count:** 131 passed, 25 skipped, 0 failed (baseline was 128; +3 new tests)
+- **No "rapidfuzz not installed" WARNING** in any pipeline run after this change.
 
