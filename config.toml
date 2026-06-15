@@ -31,7 +31,8 @@ enabled = true
 crawl_delay = 10
 
 [sources.the_engineer]
-enabled = true
+# Cloudflare-protected — disabled 2026-06-15 pending alternative strategy
+enabled = false
 crawl_delay = 5
 
 [sources.aviation_job_search]

@@ -251,3 +251,53 @@ The identity (content-hash) fallback misses ghost duplicates where the same list
 - **Test count:** 131 passed, 25 skipped, 0 failed (baseline was 128; +3 new tests)
 - **No "rapidfuzz not installed" WARNING** in any pipeline run after this change.
 
+---
+
+## 2026-06-15: The Engineer Jobs — Cloudflare Hard Block Confirmed
+
+**Task:** Calibrate the `the_engineer` adapter and determine if Cloudflare blocks it.
+
+**Site status:** **BLOCKED** — Cloudflare hard block. Adapter disabled.
+
+### Probe result (2026-06-15T09:45Z)
+
+```
+GET https://jobs.theengineer.co.uk/jobs/project-manager/?contract=contract
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ... Chrome/131.0.0.0 Safari/537.36
+
+HTTP 403
+Server: cloudflare
+CF-RAY: a0c053ada97c2968-LHR
+Body: "Attention Required! | Cloudflare" / "Sorry, you have been blocked"
+```
+
+### Anti-bot detection result
+
+**Hard Cloudflare block** — not a JS challenge (which would return 200 + challenge page). The Cloudflare edge node returned a 403 before the request reached the origin server. This means:
+
+- Phase A (httpx + browser headers) fails at the edge — browser User-Agent alone is insufficient.
+- Phase B (Playwright headless) would likely also fail: headless Chromium is detectable by Cloudflare's bot score fingerprinting (JS entropy, canvas, WebGL, missing browser APIs). Attempting stealth-patching would violate charter.
+
+### Fetch strategy
+
+Not applicable — calibration stopped at Cloudflare detection gate per charter rules.
+
+### Actions taken
+
+| Action | Detail |
+|---|---|
+| `config.toml` | `enabled = false` for `[sources.the_engineer]` with dated comment |
+| Raw fixture saved | `tests/fixtures/adapters/the_engineer_recon.html` (5,970 bytes — full Cloudflare error page) |
+| Decision drop written | `.squad/decisions/inbox/michael-engineer-blocked.md` — documents evidence, alternatives, recommended next step (RSS probe) |
+| Skill created | `.squad/skills/cloudflare-detection/SKILL.md` — reusable Cloudflare detection protocol for future adapter calibrations |
+
+### Recommended next step (for Tommy)
+
+Probe RSS endpoints: `https://jobs.theengineer.co.uk/rss`, `/feed`, `/rss.xml`. RSS feeds typically bypass Cloudflare bot protection entirely. If a feed exists, Michael can build an RSS adapter in one sprint.
+
+### Impact
+
+- **-1 source** temporarily. Pipeline runs on 6 sources.
+- No regressions — existing tests unaffected (disabled source skipped by orchestrator).
+- Test count unchanged: **138 passed, 25 skipped** at time of commit.
+
