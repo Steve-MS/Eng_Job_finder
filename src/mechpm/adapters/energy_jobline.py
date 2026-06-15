@@ -1,4 +1,14 @@
-"""Energy Jobline adapter — Jobiqo/Drupal platform HTML scrape.
+"""Energy Jobline adapter — Drupal/Jobiqo platform HTML scrape.
+
+Confirmed structure (live recon 2026-06-15):
+  - Plain HTML (no __NEXT_DATA__); Drupal Views listing page.
+  - Card:     <article id="node-{nid}" class="... node--job-per-template ...">
+  - Title:    h2.node__title a  (text; href is already absolute)
+  - Employer: span.recruiter-company-profile-job-organization a
+  - Location: div.location span  (optional — absent on some listings)
+  - Date:     span.date  → text "MM/DD/YYYY,"  (US format, strip trailing comma)
+  - Salary:   not present in search-result cards
+  - ID:       regex node-(\\d+) on article id attribute
 
 Search URL: https://www.energyjobline.com/jobs
             ?keywords=project+manager+mechanical
@@ -6,9 +16,8 @@ Search URL: https://www.energyjobline.com/jobs
             &contract_type=contract
 
 robots.txt:  Crawl-delay: 10. /search/ disallowed (legacy); /jobs?... allowed.
-Pagination:  &page=N  (1-based; capped at _MAX_PAGES for MVP).
-Parsing:     selectolax — tries multiple Drupal/Jobiqo card selectors in order,
-             falls back gracefully when none match.
+Pagination:  0-based &page=N  (page 1 = no param; page 2 = &page=1 etc.)
+             Capped at _MAX_PAGES for the MVP.
 Detail fetch: skipped for MVP; metadata["detail_fetched"] = False.
 """
 from __future__ import annotations
@@ -37,42 +46,44 @@ _MAX_PAGES = 5
 _PAGE_DELAY_SECONDS = 10  # robots.txt Crawl-delay: 10
 _REQUEST_TIMEOUT = 30.0
 
-# Ordered by likelihood on Jobiqo/Drupal themes — first non-empty match wins.
+# Confirmed primary selector from live recon 2026-06-15.
+# Fallbacks cover potential future theme changes.
 _CARD_SELECTORS = [
-    "article.job-result",
-    "article.job-item",
-    "li.job-result",
-    "li.job-item",
-    "[itemtype*='JobPosting']",
-    "div.job-listing",
-    "div.views-row",
-    "[data-job-id]",
+    "article.node--job-per-template",   # confirmed 2026-06-15
+    "article.node-job",                  # Drupal node class alternative
+    "article[id^='node-']",              # id-attribute fallback
+    "[itemtype*='JobPosting']",          # schema.org fallback
+    "article.job-result",               # legacy Jobiqo theme
+    "div.views-row",                    # generic Drupal Views row
 ]
 
+# Confirmed from live recon; h2.node__title a is the working selector.
 _TITLE_SELECTORS = [
+    "h2.node__title a",
+    ".node__title a",
+    "h2 a.recruiter-job-link",
     "[itemprop='title']",
-    "h2.job-title a",
-    "h3.job-title a",
-    ".job-title a",
-    ".title a",
     "h2 a",
     "h3 a",
 ]
+# Confirmed: employer is in span.recruiter-company-profile-job-organization > a
 _EMPLOYER_SELECTORS = [
+    ".recruiter-company-profile-job-organization a",
+    ".recruiter-company-profile-job-organization",
     "[itemprop='hiringOrganization'] [itemprop='name']",
     "[itemprop='hiringOrganization']",
     ".employer-name",
     ".company-name",
     ".employer",
     ".company",
-    "[data-employer]",
 ]
+# Confirmed: location in div.location > span (optional field)
 _LOCATION_SELECTORS = [
+    ".location span",
+    ".location",
     "[itemprop='jobLocation'] [itemprop='name']",
     "[itemprop='jobLocation']",
     ".job-location",
-    ".location",
-    "[data-location]",
 ]
 _SALARY_SELECTORS = [
     "[itemprop='baseSalary']",
@@ -82,22 +93,15 @@ _SALARY_SELECTORS = [
     ".field-job-salary",
     ".field-salary",
 ]
+# Confirmed: date in span.date with text "MM/DD/YYYY," (strip trailing comma)
 _DATE_SELECTORS = [
+    ".description .date",
+    ".date",
     "[itemprop='datePosted']",
     "time.date",
-    ".date",
     ".posted-date",
     ".created",
-    ".field-posted-date",
     "time",
-]
-_SNIPPET_SELECTORS = [
-    "[itemprop='description']",
-    ".job-snippet",
-    ".description",
-    ".summary",
-    ".views-field-body",
-    ".field-body",
 ]
 
 _HEADERS = {
@@ -132,28 +136,36 @@ def _get_text(node, selectors: list[str]) -> str | None:
     return None
 
 
-def _extract_listing_id(url: str) -> str:
-    """Extract a stable ID from a listing URL.
-
-    Energy Jobline URLs are typically ``/job/{numeric-id}/{slug}`` or
-    ``/jobs/{numeric-id}/{slug}``.  Falls back to the last path segment.
-    """
+def _extract_listing_id_from_url(url: str) -> str:
+    """Fallback: extract numeric ID from listing URL slug (e.g. /job/slug-28782419)."""
     path = urlparse(url).path
     segments = [s for s in path.strip("/").split("/") if s]
     for seg in segments:
         if re.match(r"^\d+$", seg):
             return seg
+    # Last segment may be "slug-nid" — try splitting on "-" and taking last part
+    if segments:
+        last = segments[-1]
+        parts = last.split("-")
+        if parts and re.match(r"^\d+$", parts[-1]):
+            return parts[-1]
     return segments[-1] if segments else url
 
 
 def _parse_date(raw: str | None) -> datetime | None:
-    """Parse date strings commonly emitted by Jobiqo/Drupal themes."""
+    """Parse date strings emitted by the EJL Drupal theme.
+
+    Confirmed format on 2026-06-15: ``MM/DD/YYYY`` (US format) with an
+    optional trailing comma.  ISO 8601 variants are also handled for
+    resilience.
+    """
     if not raw:
         return None
-    raw = raw.strip()
+    raw = raw.strip().rstrip(",").strip()
     for fmt in (
         "%Y-%m-%d",
-        "%d/%m/%Y",
+        "%m/%d/%Y",           # confirmed EJL format: 06/15/2026
+        "%d/%m/%Y",           # legacy fallback
         "%d %B %Y",
         "%d %b %Y",
         "%B %d, %Y",
@@ -165,7 +177,7 @@ def _parse_date(raw: str | None) -> datetime | None:
             return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-    # Tolerate ISO timestamps with offset junk: grab the date prefix only.
+    # Tolerate ISO timestamps with arbitrary offset: grab the date prefix only.
     iso_match = re.match(r"(\d{4}-\d{2}-\d{2})", raw)
     if iso_match:
         try:
@@ -191,63 +203,86 @@ def _find_cards(tree: HTMLParser) -> list:
 
 
 def _card_to_raw_listing(card, page_url: str) -> RawListing | None:
-    """Map one parsed card node to a RawListing.  Returns None if title absent."""
-    # --- Title + listing URL ---
-    title: str | None = None
-    listing_url: str = ""
-    for sel in _TITLE_SELECTORS:
-        match = card.css_first(sel)
-        if match:
-            title = match.text(strip=True)
-            href = match.attributes.get("href", "")
-            if href:
-                listing_url = urljoin(_BASE_URL, href)
-            break
+    """Map one parsed card node to a RawListing.  Returns None if title absent.
 
+    Confirmed field map (live recon 2026-06-15):
+      article id attr  → source_listing_id  (regex node-(\\d+))
+      h2.node__title a → title + url        (href is absolute)
+      .recruiter-company-profile-job-organization a → employer
+      .location span   → location_raw       (optional)
+      .date text       → posted_at          (MM/DD/YYYY, strip comma)
+    """
+    # --- Listing ID from article id attribute (e.g. "node-28782419") ---
+    card_id_attr = card.attributes.get("id", "")
+    id_match = re.match(r"node-(\d+)", card_id_attr)
+    listing_id: str = id_match.group(1) if id_match else ""
+
+    # --- Title + URL from h2.node__title a ---
+    title_node = card.css_first("h2.node__title a")
+    if title_node is None:
+        # Fallback: try broader selectors
+        for sel in _TITLE_SELECTORS[1:]:
+            title_node = card.css_first(sel)
+            if title_node:
+                break
+
+    if title_node is None:
+        return None
+
+    title = title_node.text(strip=True)
     if not title:
         return None
 
-    # --- Listing ID ---
-    listing_id: str = (
-        card.attributes.get("data-job-id")
-        or card.attributes.get("data-id")
-        or (listing_url and _extract_listing_id(listing_url))
-        or ""
-    )
+    href = title_node.attributes.get("href", "")
+    # Href is already absolute on EJL; urljoin handles both cases safely.
+    listing_url = href if href.startswith("http") else urljoin(_BASE_URL, href)
+
+    # If id attr extraction failed, fall back to URL-based extraction.
+    if not listing_id and listing_url:
+        listing_id = _extract_listing_id_from_url(listing_url)
 
     # --- Employer ---
-    employer = _get_text(card, _EMPLOYER_SELECTORS)
+    emp_node = card.css_first(".recruiter-company-profile-job-organization a")
+    if emp_node is None:
+        emp_node = card.css_first(".recruiter-company-profile-job-organization")
+    employer: str | None = emp_node.text(strip=True) if emp_node else None
+    if not employer:
+        employer = _get_text(card, _EMPLOYER_SELECTORS[2:])
 
-    # --- Location ---
-    location_raw = _get_text(card, _LOCATION_SELECTORS)
+    # --- Location (optional on EJL search cards) ---
+    loc_node = card.css_first(".location span")
+    if loc_node is None:
+        loc_node = card.css_first(".location")
+    location_raw: str | None = loc_node.text(strip=True) if loc_node else None
 
-    # --- Salary ---
-    salary_raw = _get_text(card, _SALARY_SELECTORS)
-
-    # --- Posted date: prefer datetime/content attribute on <time> elements ---
+    # --- Posted date ---
     posted_at: datetime | None = None
     for sel in _DATE_SELECTORS:
-        match = card.css_first(sel)
-        if match:
-            dt_attr = match.attributes.get("datetime") or match.attributes.get(
-                "content"
+        date_node = card.css_first(sel)
+        if date_node:
+            # Prefer datetime/content attributes on <time> elements if present.
+            dt_attr = (
+                date_node.attributes.get("datetime")
+                or date_node.attributes.get("content")
             )
-            posted_at = _parse_date(dt_attr) or _parse_date(match.text(strip=True))
+            posted_at = _parse_date(dt_attr) or _parse_date(
+                date_node.text(strip=True)
+            )
             if posted_at:
                 break
 
-    # --- Snippet ---
-    snippet = _get_text(card, _SNIPPET_SELECTORS)
+    # --- Salary (not in EJL search result cards; kept for future resilience) ---
+    salary_raw = _get_text(card, _SALARY_SELECTORS)
 
     return RawListing(
         source="energy_jobline",
-        source_listing_id=str(listing_id),
+        source_listing_id=listing_id,
         url=listing_url,
         title=title,
         employer=employer,
         agency=None,
         location_raw=location_raw,
-        description_raw=snippet,
+        description_raw=None,
         posted_at=posted_at,
         salary_raw=salary_raw,
         contract_type_raw="contract",
@@ -258,16 +293,58 @@ def _card_to_raw_listing(card, page_url: str) -> RawListing | None:
     )
 
 
+def _parse_html(html: str, page_url: str) -> list[RawListing]:
+    """Parse a raw HTML search-results page and return RawListings.
+
+    Extracted as a standalone function so fixture-based unit tests can call it
+    directly without making HTTP requests.
+    """
+    try:
+        tree = HTMLParser(html)
+    except Exception:
+        logger.exception("energy_jobline: HTMLParser failed for %s", page_url)
+        return []
+
+    cards = _find_cards(tree)
+    if not cards:
+        logger.warning(
+            "energy_jobline: no job cards found in HTML (%s) — "
+            "tried selectors: [%s]. DOM may have changed.",
+            page_url,
+            ", ".join(_CARD_SELECTORS),
+        )
+        return []
+
+    listings: list[RawListing] = []
+    for card in cards:
+        listing = _card_to_raw_listing(card, page_url)
+        if listing is not None:
+            listings.append(listing)
+
+    logger.debug(
+        "energy_jobline: %s → %d listing(s) parsed from %d card(s).",
+        page_url,
+        len(listings),
+        len(cards),
+    )
+    return listings
+
+
 # ---------------------------------------------------------------------------
 # Adapter
 # ---------------------------------------------------------------------------
 
 class EnergyJoblineAdapter(SourceAdapter):
-    """Adapter for energyjobline.com — Jobiqo/Drupal HTML scrape.
+    """Adapter for energyjobline.com — Drupal HTML scrape.
 
     Fetches up to ``_MAX_PAGES`` pages of contract PM listings.
     Respects robots.txt ``Crawl-delay: 10`` between page requests.
     Returns ``[]`` on any unrecoverable error; never crashes the pipeline.
+
+    Pagination is 0-based (EJL Drupal convention):
+      page 1 → no &page param
+      page 2 → &page=1
+      page 3 → &page=2  … etc.
     """
 
     name = "energy_jobline"
@@ -280,7 +357,7 @@ class EnergyJoblineAdapter(SourceAdapter):
 
         Paginates up to _MAX_PAGES; sleeps _PAGE_DELAY_SECONDS between pages.
         Applies ``since`` filter client-side on ``posted_at`` (best-effort —
-        many cards omit the posted date).
+        cards without a posted date are always included).
         Returns [] and logs a warning on any failure.
         """
         listings: list[RawListing] = []
@@ -291,10 +368,11 @@ class EnergyJoblineAdapter(SourceAdapter):
                 follow_redirects=True,
             ) as client:
                 for page_num in range(1, _MAX_PAGES + 1):
+                    # Pagination is 0-based: page 1 → no param, page 2 → &page=1
                     url = (
                         _SEARCH_URL
                         if page_num == 1
-                        else f"{_SEARCH_URL}&page={page_num}"
+                        else f"{_SEARCH_URL}&page={page_num - 1}"
                     )
                     page_listings = await self._fetch_page(client, url, page_num)
 
@@ -342,7 +420,10 @@ class EnergyJoblineAdapter(SourceAdapter):
         url: str,
         page_num: int,
     ) -> list[RawListing]:
-        """Fetch and parse one search-results page.  Returns [] on any error."""
+        """Fetch one search-results page and return parsed listings.
+
+        Returns [] on any error — never raises.
+        """
         try:
             response = await client.get(url)
             response.raise_for_status()
@@ -360,37 +441,7 @@ class EnergyJoblineAdapter(SourceAdapter):
             )
             return []
 
-        try:
-            tree = HTMLParser(response.text)
-        except Exception:
-            logger.exception(
-                "energy_jobline: HTML parse error on page %d.", page_num
-            )
-            return []
-
-        cards = _find_cards(tree)
-        if not cards:
-            logger.warning(
-                "energy_jobline: no job cards found on page %d — "
-                "tried selectors: [%s]. DOM may have changed.",
-                page_num,
-                ", ".join(_CARD_SELECTORS),
-            )
-            return []
-
-        page_listings: list[RawListing] = []
-        for card in cards:
-            listing = _card_to_raw_listing(card, url)
-            if listing is not None:
-                page_listings.append(listing)
-
-        logger.debug(
-            "energy_jobline: page %d → %d listing(s) parsed from %d card(s).",
-            page_num,
-            len(page_listings),
-            len(cards),
-        )
-        return page_listings
+        return _parse_html(response.text, url)
 
 
 # ---------------------------------------------------------------------------
