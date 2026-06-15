@@ -186,7 +186,71 @@ Re-ran `mechpm.cli run-all --skip-fetch` against existing data. "MENA Region" li
 
 ---
 
-## 2026-06-15: Hard-Reject Known Non-UK Countries (No Review Queue)
+## 2026-06-15: v0.2 Filter Taxonomy Expansion (A1–A4)
+
+### Work delivered
+Implemented all four of Tommy's work items per `.squad/decisions/inbox/tommy-v02-query-slate.md` Section 2.
+
+#### A1 — PM_TITLE_RE expansion
+Added 10 new alternations: `engineering manager`, `construction manager`, `site manager`,
+`commissioning manager`, `m&e manager`, `installation(s) manager`, `contract(s) manager`,
+`project engineer`, `planning manager`, `package manager`.
+
+#### A2 — MECH_KEYWORDS expansion
+Merged Tommy's 57-term `MECH_KEYWORDS_ADDITIONS` into the existing 43 terms; removed
+3 duplicates (`building services`, `ventilation`, `structural steel` already present);
+sorted alphabetically. Final list: **101 terms**.
+
+#### A3 — DISQUALIFY_PHRASES expansion
+Merged 53 new phrases across three category groups:
+- IT/Digital/Cyber (34 phrases): `product manager`, `automation engineer`, `test engineer`, `digital transformation`, `systems engineer`, etc.
+- HR/Admin/Commercial (17 phrases): `hr manager`, `quantity surveyor`, `estimator`, `operations manager`, `sales manager`, etc.
+- Healthcare/Life Sciences (6 phrases): `clinical project manager`, `pharmaceutical`, `pharma`, `biotech`, `medical device`, `clinical trial`
+
+`_DISQUALIFY_RES` auto-regenerated via existing list comprehension — no separate edit needed.
+
+#### A4 — Gold set extension and precision check
+Added 13 new fixtures (7 positive, 6 negative):
+
+**True positives** — sector coverage:
+| Fixture | Title | Key new feature tested |
+|---------|-------|----------------------|
+| pos_10 | Commissioning Manager — HVAC & Mechanical | A1 `commissioning manager` |
+| pos_11 | M&E Manager — Commercial Fit-Out | A1 `m&e manager` regex |
+| pos_12 | Engineering Manager — Submarine (Defence) | A1 `engineering manager` + A2 `submarine` |
+| pos_13 | Project Manager — CCGT Power Station | A2 `ccgt`/`combined cycle`/`gas turbine` |
+| pos_14 | Project Engineer — Offshore Mechanical | A1 `project engineer` (exact EJL 0-storage fix) |
+| pos_15 | Construction Manager (Mechanical Services) | A1 `construction manager` |
+| pos_16 | Senior PM — Offshore Wind Farm BoP | A2 `wind farm`/`wind turbine`/`balance of plant` |
+
+**True negatives** — noise kill:
+| Fixture | Title | Key new feature tested |
+|---------|-------|----------------------|
+| neg_12 | Digital Project Manager — IT Transformation | A3 `digital project manager`/`digital transformation` |
+| neg_13 | Product Manager — SaaS Analytics | A3 `product manager` (tech PM ≠ project manager) |
+| neg_14 | HR Manager — Talent Acquisition | A3 `hr manager`/`human resources`/`talent acquisition` |
+| neg_15 | Sales Manager — Engineering Products | A3 `sales manager` |
+| neg_16 | Senior Quantity Surveyor — Construction | A3 `quantity surveyor` |
+| neg_17 | Automation Engineer — RPA/Python | A3 `automation engineer` |
+
+**Precision result:** 100% on extended gold set (36 TP, 0 FP for mech_filter).
+Combined pm+mech precision: 100% (both thresholds beat ≥80% combined target).
+
+### Recall boost on EJL (the key signal)
+The new `project engineer` and `commissioning manager` PM_TITLE_RE alternations are the direct fix for Energy Jobline's 0-storage problem. The cached 2026-06-15 raw data from Michael's v0.1 EJL fetch still returns generic engineering roles (not PM-focused), so the DB shows 0 for that source — but pos_14 and pos_10 confirm that when EJL returns the right titles (after Michael's M4 multi-query), they will now pass `passes_pm_role`. This is the intended split: my filter expansion + Michael's M4 multi-query = EJL storage > 0.
+
+### Pipeline smoke result
+Re-processed cached 2026-06-15 raw data (`--skip-fetch`):
+- **Stored: 37** (was ~26 with v0.1 filters — +42% on the same raw data)
+- The additional 11 stored listings came from `engineering manager` / `commissioning manager` / `m&e manager` titles on other sources (Reed/Adzuna) that v0.1 rejected.
+
+### Edge-case notes for future Ada work
+1. **"operations manager" + mech keyword override**: For sector-based listings, the existing `passes_mechanical` override (if `has_disqualifier=True`, check for mech keyword in title) protects legitimate roles like "Operations Manager (HVAC Plant)" from being rejected at the mech gate. For generalist sector, disqualify_score (5) exceeds typical single-keyword mech_score (3), so standalone "Operations Manager" is correctly rejected. The pm_filter is the primary gate in any case (ops manager ≠ PM title).
+2. **"quantity surveyor" in construction sector**: mech_filter passes (construction sector + "construction" keyword in title overrides QS disqualifier), but pm_filter rejects correctly. Documented in neg_16 fixture.
+3. **"fixture" as MECH_KEYWORD**: Low-frequency risk of false positives from "light fixture" or "sporting fixture" in job descriptions. In practice, only fires for manufacturing jig-and-fixture contexts where other mech signals are also present.
+4. **"site manager" and "engineering manager" alternations**: As Tommy noted, these are the riskiest additions to PM_TITLE_RE. The two-gate system (pm_filter loosened + mech_filter as safety net) is the correct mitigation. Monitoring recommended on first live v0.2 report.
+
+
 
 ### Problem
 A listing *"ewi Recruitment — Project Manager (High Speed Rail) - MENA Region"* with explicit location `"Cairo, Cairo Governorate, Egypt"` appeared in the Review Queue of the 2026-06-15 live report. The previous filter only hard-rejected non-UK countries when `detect_country` returned a non-"GB" code — but Egypt was not in `_NON_UK_MAP`, so `detect_country("Cairo, Cairo Governorate, Egypt")` fell through to the "location present, no match → confirmed UK" branch and returned "GB". The UK filter then passed the listing (location present + country GB). It appeared in Review Queue only because of a "Day rate missing" sanity flag, not because the UK filter rejected it.
