@@ -283,3 +283,64 @@ def test_field_population_rates(parsed_listings):
     assert rate("employer") == 1.0, f"employer rate {rate('employer'):.0%} < 100%"
     assert rate("url") == 1.0, f"url rate {rate('url'):.0%} < 100%"
     assert rate("posted_at") == 1.0, f"posted_at rate {rate('posted_at'):.0%} < 100%"
+
+
+# ---------------------------------------------------------------------------
+# M3: AdzunaAdapter constructor — what_or / what_exclude params
+# ---------------------------------------------------------------------------
+
+class TestAdzunaAdapterParams:
+    """Tests for what_or / what_exclude / location0 / category (M3)."""
+
+    def test_adapter_stores_what_or(self):
+        """AdzunaAdapter must store what_or on the instance."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(
+            app_id="test_id",
+            app_key="test_key",
+            what_or="project manager mechanical HVAC",
+        )
+        assert adapter.what_or == "project manager mechanical HVAC"
+
+    def test_adapter_stores_what_exclude(self):
+        """AdzunaAdapter must store what_exclude on the instance."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(
+            app_id="test_id",
+            app_key="test_key",
+            what_exclude="software devops cloud",
+        )
+        assert adapter.what_exclude == "software devops cloud"
+
+    def test_adapter_stores_location0(self):
+        """AdzunaAdapter must store location0 on the instance."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(app_id="id", app_key="key", location0="UK")
+        assert adapter.location0 == "UK"
+
+    def test_adapter_stores_category(self):
+        """AdzunaAdapter must store category on the instance."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(app_id="id", app_key="key", category="engineering-jobs")
+        assert adapter.category == "engineering-jobs"
+
+    def test_adapter_stores_max_pages(self):
+        """AdzunaAdapter must honour the max_pages constructor param."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(app_id="id", app_key="key", max_pages=4)
+        assert adapter.max_pages == 4
+
+    def test_adapter_defaults_backward_compat(self):
+        """AdzunaAdapter constructed without new params must not break."""
+        from mechpm.adapters.adzuna import AdzunaAdapter
+
+        adapter = AdzunaAdapter(app_id="id", app_key="key")
+        assert adapter.what_or == ""
+        assert adapter.what_exclude == ""
+        assert adapter.location0 == "UK"
+        assert adapter.category == ""

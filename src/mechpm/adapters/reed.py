@@ -64,7 +64,15 @@ def _build_salary_raw(job: dict[str, Any]) -> str | None:
 
 
 class ReedAdapter(SourceAdapter):
-    """Adapter for the Reed.co.uk official JSON API."""
+    """Adapter for the Reed.co.uk official JSON API.
+
+    Supports multi-query mode via ``keywords_list``: the adapter iterates
+    each keyword string, unions results by ``source_listing_id``, and
+    returns the deduplicated set (capped at ``safety_cap``).
+
+    Backwards-compatible: passing a single ``keywords`` scalar wraps it
+    into a one-element list internally.
+    """
 
     name = "reed"
 
@@ -73,78 +81,114 @@ class ReedAdapter(SourceAdapter):
         api_key: str,
         crawl_delay: int = 0,
         keywords: str = _DEFAULT_KEYWORDS,
+        keywords_list: list[str] | None = None,
         location: str = _DEFAULT_LOCATION,
         results_to_take: int = _DEFAULT_RESULTS_TO_TAKE,
         safety_cap: int = _DEFAULT_SAFETY_CAP,
     ) -> None:
         self.api_key = api_key
         self.crawl_delay = crawl_delay
-        self.keywords = keywords
         self.location = location
         self.results_to_take = results_to_take
         self.safety_cap = safety_cap
+        # Prefer explicit keywords_list; fall back to wrapping the scalar.
+        if keywords_list:
+            self.keywords_list = keywords_list
+            self.keywords = keywords  # kept for backwards-compat attribute access
+        else:
+            self.keywords = keywords
+            self.keywords_list = [keywords]
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
-        """Fetch contract PM listings from Reed, paginating until empty or safety cap.
+        """Fetch contract PM listings from Reed, iterating all keywords in keywords_list.
 
-        Sleeps _PAGE_DELAY_SECONDS between requests to stay within 10 req/min.
-        Filters client-side on posted_at when ``since`` is provided.
-        Returns [] on any unrecoverable error.
+        For each keyword:
+          - Paginates until an empty / partial page or the safety cap is reached.
+          - Sleeps _PAGE_DELAY_SECONDS between every HTTP request (10 req/min limit).
+        Results are deduplicated within-source by ``source_listing_id`` before return.
+        Applies ``since`` filter client-side on ``posted_at``.
+        Returns [] (or partial results) on any unrecoverable error.
         """
         if not self.api_key:
             logger.warning("REED_API_KEY is not set — skipping Reed fetch.")
             return []
 
-        listings: list[RawListing] = []
-        skip = 0
+        seen: dict[str, RawListing] = {}  # source_listing_id → listing
+        total_pages = 0
 
         try:
             async with httpx.AsyncClient(
                 auth=(self.api_key, ""),
                 timeout=_REQUEST_TIMEOUT,
             ) as client:
-                while len(listings) < self.safety_cap:
-                    page = await self._fetch_page(client, skip)
-
-                    if not page:
+                for keyword in self.keywords_list:
+                    if len(seen) >= self.safety_cap:
                         break
+                    skip = 0
+                    while len(seen) < self.safety_cap:
+                        # Rate-limit: 6 s between every request after the first.
+                        if total_pages > 0:
+                            await asyncio.sleep(_PAGE_DELAY_SECONDS)
 
-                    for job in page:
-                        raw = self._map_to_raw_listing(job)
-                        if since and raw.posted_at and raw.posted_at < since:
-                            continue
-                        listings.append(raw)
+                        page = await self._fetch_page(client, skip, keyword)
+                        total_pages += 1
 
-                    if len(page) < self.results_to_take:
-                        # Last page — no further pages to fetch.
-                        break
+                        if not page:
+                            break
 
-                    skip += self.results_to_take
+                        new_count = 0
+                        for job in page:
+                            raw = self._map_to_raw_listing(job)
+                            if since and raw.posted_at and raw.posted_at < since:
+                                continue
+                            lid = raw.source_listing_id
+                            if lid and lid not in seen:
+                                seen[lid] = raw
+                                new_count += 1
 
-                    if len(listings) < self.safety_cap:
-                        await asyncio.sleep(_PAGE_DELAY_SECONDS)
+                        logger.debug(
+                            "Reed: keyword=%r skip=%d → %d results, %d new unique.",
+                            keyword,
+                            skip,
+                            len(page),
+                            new_count,
+                        )
+
+                        if len(page) < self.results_to_take:
+                            break  # last page for this keyword
+
+                        skip += self.results_to_take
 
         except Exception:
             logger.exception(
                 "Reed fetch failed — returning partial results (%d so far).",
-                len(listings),
+                len(seen),
             )
-            return listings
+            return list(seen.values())
 
+        listings = list(seen.values())
         logger.info(
-            "Reed: fetched %d listing(s) (pages_fetched=%d, since=%s).",
+            "Reed: fetched %d unique listing(s) "
+            "(queries=%d, pages_fetched=%d, since=%s).",
             len(listings),
-            (skip // self.results_to_take) + 1,
+            len(self.keywords_list),
+            total_pages,
             since,
         )
         return listings
 
     async def _fetch_page(
-        self, client: httpx.AsyncClient, skip: int
+        self,
+        client: httpx.AsyncClient,
+        skip: int,
+        keyword: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch one page of Reed search results; returns [] on HTTP/network error."""
+        """Fetch one page of Reed search results; returns [] on HTTP/network error.
+
+        ``keyword`` overrides ``self.keywords`` for multi-query iteration.
+        """
         params: dict[str, Any] = {
-            "keywords": self.keywords,
+            "keywords": keyword if keyword is not None else self.keywords,
             "contract": "true",
             "resultsToTake": self.results_to_take,
             "resultsToSkip": skip,

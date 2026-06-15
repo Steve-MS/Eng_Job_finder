@@ -26,7 +26,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timezone
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import httpx
 from selectolax.parser import HTMLParser
@@ -36,6 +36,7 @@ from mechpm.adapters.base import RawListing, SourceAdapter
 logger = logging.getLogger("mechpm.adapter.energy_jobline")
 
 _BASE_URL = "https://www.energyjobline.com"
+# Legacy single-query URL (kept for backwards compatibility / tests).
 _SEARCH_URL = (
     "https://www.energyjobline.com/jobs"
     "?keywords=project+manager+mechanical"
@@ -45,6 +46,27 @@ _SEARCH_URL = (
 _MAX_PAGES = 5
 _PAGE_DELAY_SECONDS = 10  # robots.txt Crawl-delay: 10
 _REQUEST_TIMEOUT = 30.0
+
+
+def _build_ejl_search_urls(
+    keywords_list: list[str],
+    location: str = "United Kingdom",
+    contract_type: str = "contract",
+) -> list[str]:
+    """Build Energy Jobline search URLs from a keywords list.
+
+    Uses ``quote_plus`` so spaces become ``+`` (e.g. ``"project manager"``
+    → ``"project+manager"``), matching EJL's expected URL format.
+    """
+    return [
+        (
+            "https://www.energyjobline.com/jobs"
+            f"?keywords={quote_plus(kw)}"
+            f"&location={quote_plus(location)}"
+            f"&contract_type={quote_plus(contract_type)}"
+        )
+        for kw in keywords_list
+    ]
 
 # Confirmed primary selector from live recon 2026-06-15.
 # Fallbacks cover potential future theme changes.
@@ -337,8 +359,12 @@ def _parse_html(html: str, page_url: str) -> list[RawListing]:
 class EnergyJoblineAdapter(SourceAdapter):
     """Adapter for energyjobline.com — Drupal HTML scrape.
 
-    Fetches up to ``_MAX_PAGES`` pages of contract PM listings.
-    Respects robots.txt ``Crawl-delay: 10`` between page requests.
+    Supports multi-query mode via ``keywords_list``: the adapter iterates
+    each keyword, builds a search URL, paginates up to
+    ``max_pages_per_query`` pages, and unions all results by
+    ``source_listing_id`` (within-source dedup) before returning.
+
+    Respects robots.txt ``Crawl-delay: 10`` between every page request.
     Returns ``[]`` on any unrecoverable error; never crashes the pipeline.
 
     Pagination is 0-based (EJL Drupal convention):
@@ -349,67 +375,106 @@ class EnergyJoblineAdapter(SourceAdapter):
 
     name = "energy_jobline"
 
-    def __init__(self, crawl_delay: int = 10, **kwargs: object) -> None:
+    def __init__(
+        self,
+        crawl_delay: int = 10,
+        keywords_list: list[str] | None = None,
+        location: str = "United Kingdom",
+        contract_type: str = "contract",
+        max_pages_per_query: int = _MAX_PAGES,
+        **kwargs: object,
+    ) -> None:
         self.crawl_delay = crawl_delay
+        self.max_pages_per_query = max_pages_per_query
+        # Build search URLs from keywords_list; fall back to legacy single URL.
+        if keywords_list:
+            self.search_urls = _build_ejl_search_urls(
+                keywords_list, location, contract_type
+            )
+        else:
+            self.search_urls = [_SEARCH_URL]
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
         """Scrape energyjobline.com for contract PM listings.
 
-        Paginates up to _MAX_PAGES; sleeps _PAGE_DELAY_SECONDS between pages.
+        Iterates ``self.search_urls``; for each URL paginates up to
+        ``max_pages_per_query`` pages.  Sleeps ``_PAGE_DELAY_SECONDS``
+        between every page request (robots.txt Crawl-delay: 10).
+        Deduplicates within-source by ``source_listing_id`` before return.
         Applies ``since`` filter client-side on ``posted_at`` (best-effort —
         cards without a posted date are always included).
         Returns [] and logs a warning on any failure.
         """
-        listings: list[RawListing] = []
+        seen: dict[str, RawListing] = {}  # source_listing_id → listing
+        first_request = True
         try:
             async with httpx.AsyncClient(
                 headers=_HEADERS,
                 timeout=_REQUEST_TIMEOUT,
                 follow_redirects=True,
             ) as client:
-                for page_num in range(1, _MAX_PAGES + 1):
-                    # Pagination is 0-based: page 1 → no param, page 2 → &page=1
-                    url = (
-                        _SEARCH_URL
-                        if page_num == 1
-                        else f"{_SEARCH_URL}&page={page_num - 1}"
-                    )
-                    page_listings = await self._fetch_page(client, url, page_num)
+                for search_url in self.search_urls:
+                    for page_num in range(1, self.max_pages_per_query + 1):
+                        url = (
+                            search_url
+                            if page_num == 1
+                            else f"{search_url}&page={page_num - 1}"
+                        )
+                        # Respect Crawl-delay: 10 between every request.
+                        if not first_request:
+                            await asyncio.sleep(_PAGE_DELAY_SECONDS)
+                        first_request = False
 
-                    if not page_listings:
-                        if page_num == 1:
-                            logger.warning(
-                                "energy_jobline: page 1 returned no listings — "
-                                "possible selector mismatch or site change. "
-                                "Returning []."
-                            )
-                        else:
-                            logger.debug(
-                                "energy_jobline: page %d empty — stopping pagination.",
-                                page_num,
-                            )
-                        break
+                        page_listings = await self._fetch_page(client, url, page_num)
 
-                    for listing in page_listings:
-                        if since and listing.posted_at and listing.posted_at < since:
-                            continue
-                        listings.append(listing)
+                        if not page_listings:
+                            if page_num == 1:
+                                logger.warning(
+                                    "energy_jobline: page 1 returned no listings "
+                                    "for %s — possible selector mismatch.",
+                                    url,
+                                )
+                            else:
+                                logger.debug(
+                                    "energy_jobline: page %d empty for %s — "
+                                    "stopping pagination.",
+                                    page_num,
+                                    search_url,
+                                )
+                            break
 
-                    if page_num < _MAX_PAGES:
-                        await asyncio.sleep(_PAGE_DELAY_SECONDS)
+                        new_count = 0
+                        for listing in page_listings:
+                            if since and listing.posted_at and listing.posted_at < since:
+                                continue
+                            lid = listing.source_listing_id
+                            if lid and lid not in seen:
+                                seen[lid] = listing
+                                new_count += 1
+
+                        logger.debug(
+                            "energy_jobline: %s page %d → %d results, %d new unique.",
+                            search_url,
+                            page_num,
+                            len(page_listings),
+                            new_count,
+                        )
 
         except Exception:
             logger.exception(
                 "energy_jobline: unexpected error in fetch() — "
                 "returning partial results (%d so far).",
-                len(listings),
+                len(seen),
             )
-            return listings
+            return list(seen.values())
 
+        listings = list(seen.values())
         logger.info(
-            "energy_jobline: fetched %d listing(s) (max_pages=%d, since=%s).",
+            "energy_jobline: fetched %d unique listing(s) "
+            "(queries=%d, max_pages_per_query=%d, since=%s).",
             len(listings),
-            _MAX_PAGES,
+            len(self.search_urls),
+            self.max_pages_per_query,
             since,
         )
         return listings

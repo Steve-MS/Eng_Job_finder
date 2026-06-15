@@ -45,7 +45,7 @@ _BASE_URL = "https://www.aviationjobsearch.com"
 _SITEMAP_URL = f"{_BASE_URL}/en-GB/sitemap/jobs.xml"
 _REQUEST_TIMEOUT = 30.0
 _PAGE_DELAY_SECONDS = 3
-_MAX_JOBS = 100  # safety cap on individual page fetches per run
+_MAX_JOBS = 50  # safety cap: 50 × 3s = ~150s max crawl time per run
 
 _BROWSER_HEADERS = {
     "User-Agent": (
@@ -68,10 +68,13 @@ _BROWSER_HEADERS = {
 # a PM-adjacent keyword.
 _RELEVANT_PATTERNS = [
     re.compile(r"/management/"),
+    re.compile(r"/engineering/"),              # NEW: engineering category
     re.compile(r"project[_-]manag", re.I),
     re.compile(r"programme[_-]manag", re.I),
     re.compile(r"project[_-]lead", re.I),
     re.compile(r"project[_-]coord", re.I),
+    re.compile(r"engineering[_-]manager", re.I),  # NEW: eng manager roles
+    re.compile(r"program[_-]manager", re.I),       # NEW: US spelling in slugs
 ]
 
 # Captures (loc, optional lastmod) from each <url> block in the sitemap XML.

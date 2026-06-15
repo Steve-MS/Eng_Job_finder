@@ -191,3 +191,59 @@ def test_field_population_rates(parsed_listings):
     assert rate("location_raw") >= 0.5, (
         f"location_raw rate {rate('location_raw'):.0%} unexpectedly low"
     )
+
+
+# ---------------------------------------------------------------------------
+# M4: multi-query URL construction and adapter constructor
+# ---------------------------------------------------------------------------
+
+class TestEnergyJoblineMultiQuery:
+    """Tests for keywords_list multi-query support (M4)."""
+
+    def test_build_ejl_search_urls_basic(self):
+        """_build_ejl_search_urls must produce one URL per keyword."""
+        from mechpm.adapters.energy_jobline import _build_ejl_search_urls
+
+        urls = _build_ejl_search_urls(
+            ["project manager", "engineering manager contract"],
+            location="United Kingdom",
+            contract_type="contract",
+        )
+        assert len(urls) == 2
+        assert "keywords=project+manager" in urls[0]
+        assert "keywords=engineering+manager+contract" in urls[1]
+        for url in urls:
+            assert "location=United+Kingdom" in url
+            assert "contract_type=contract" in url
+
+    def test_build_ejl_search_urls_encodes_spaces(self):
+        """Spaces in keywords must be encoded as + (quote_plus convention)."""
+        from mechpm.adapters.energy_jobline import _build_ejl_search_urls
+
+        urls = _build_ejl_search_urls(["project manager HVAC"])
+        assert "project+manager+HVAC" in urls[0]
+
+    def test_adapter_accepts_keywords_list(self):
+        """EnergyJoblineAdapter stores the right number of search URLs from keywords_list."""
+        from mechpm.adapters.energy_jobline import EnergyJoblineAdapter
+
+        adapter = EnergyJoblineAdapter(
+            keywords_list=["kw1", "kw2", "kw3"],
+            location="United Kingdom",
+            contract_type="contract",
+        )
+        assert len(adapter.search_urls) == 3
+
+    def test_adapter_fallback_to_default_url(self):
+        """Without keywords_list, adapter uses the legacy single search URL."""
+        from mechpm.adapters.energy_jobline import EnergyJoblineAdapter, _SEARCH_URL
+
+        adapter = EnergyJoblineAdapter()
+        assert adapter.search_urls == [_SEARCH_URL]
+
+    def test_adapter_max_pages_per_query_configurable(self):
+        """max_pages_per_query must be stored on the adapter instance."""
+        from mechpm.adapters.energy_jobline import EnergyJoblineAdapter
+
+        adapter = EnergyJoblineAdapter(max_pages_per_query=3)
+        assert adapter.max_pages_per_query == 3

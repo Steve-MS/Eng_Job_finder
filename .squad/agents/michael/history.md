@@ -498,3 +498,67 @@ Every Adzuna `redirect_url` contains `utm_source={app_id}` in the query string. 
 - **21 new tests** in `tests/adapters/test_adzuna.py` (all fixture-based, no live API calls)
 - Full suite: **202 passed, 25 skipped, 0 failed** (baseline before this task: 181)
 
+---
+
+## 2026-06-15: v0.2 Query Slate — Tommy's Multi-Source Keyword Expansion (M1/M3/M4/M5/M6/M7)
+
+**Task:** Implement Tommy's v0.2 query-slate spec (`.squad/decisions/inbox/tommy-v02-query-slate.md`).
+All six work items (M1, M3, M4, M5, M6, M7) delivered in one sprint.
+
+### Work items shipped
+
+| Item | Change | File |
+|---|---|---|
+| M7 | `SourceConfig` gains `keywords_list: list[str]`; `model_validator` wraps legacy `keywords` scalar into single-item list; deprecation warning when both are set | `src/mechpm/config.py` |
+| M1 | `ReedAdapter` iterates `keywords_list`, unions by `source_listing_id`, sleeps 6 s between ALL page requests (not just within-keyword) | `src/mechpm/adapters/reed.py`, `config.toml` |
+| M3 | `AdzunaAdapter` gains `what_or`, `what_exclude`, `location0`, `category`, `max_pages` constructor params; `_fetch_page` uses `what_or` when non-empty | `src/mechpm/adapters/adzuna.py`, `config.toml` |
+| M4 | `EnergyJoblineAdapter` gains `keywords_list`, `location`, `contract_type`, `max_pages_per_query`; `_build_ejl_search_urls()` standalone helper; adapter iterates search URLs, unions by `source_listing_id` | `src/mechpm/adapters/energy_jobline.py`, `config.toml` |
+| M5 | `_RELEVANT_PATTERNS` expanded with `/engineering/`, `engineering[_-]manager`, `program[_-]manager`; `_MAX_JOBS` reduced from 100 → 50 | `src/mechpm/adapters/aviation_job_search.py` |
+| M6 | `"adzuna"` inserted at index 1 in `_SOURCE_PRIORITY` (between `"reed"` and `"totaljobs"`) | `src/mechpm/extractor/dedup.py` |
+
+### Live smoke results (2026-06-15T11:xx)
+
+| Source | v0.1 fetched | v0.2 fetched | Notes |
+|---|---|---|---|
+| Reed | 29 | **201** | 4 queries × 100 cap, deduplicated; exceeded Tommy's 80-120 estimate — broad queries match large corpus |
+| Adzuna | 10 | **200** | `what_or` OR semantics + `what_exclude` noise kill; 4 pages × 50 = 200 max. Tommy estimated 60-100. |
+| Energy Jobline | 100 | **101** | 3 queries × 5 pages = 15 page fetches; EJL query results heavily overlap (same listings match all 3 keywords) → only +1 unique vs single-query. Tommy estimated 40-80 unique. |
+| Aviation Job Search | 6 | **7** | `/engineering/` category absent from live sitemap structure; `engineering-manager` slug caught 1 extra. Consistent with low-volume specialist board. |
+
+### Reed multi-query yield observations
+
+- All 4 queries return close to 100 results each (full pages) → 400 raw results before within-source dedup
+- After dedup by `jobId`, 201 unique → suggests ~50% overlap between queries (expected: "engineering project manager contract" overlaps strongly with "project manager mechanical")
+- 6 s inter-request sleep respected across query boundaries — no 429 errors in 5 pages fetched
+- Safety cap of 500 was not hit; the 201 count is the natural deduplicated union
+
+### Adzuna OR-query behaviour
+
+- `what_or` enables Adzuna's native OR semantics — far more recall than the previous `what` (AND) query
+- 4 pages × 50 = 200 results returned at max capacity → confirms OR semantics dramatically broadens coverage
+- `what_exclude` (software/devops/cloud/SAP/ERP/digital/IT) visibly removes IT noise at source level
+- `location0=UK` + `category=engineering-jobs` applied simultaneously — no apparent conflicts
+- The v0.1 adapter returned 10 listings; v0.2 returns 200 — 20× improvement in raw recall
+
+### EJL pagination caveats from this expansion
+
+- EJL keyword relevance ranking is not strict: "project manager" and "project manager HVAC" return heavily overlapping result sets because EJL appears to rank by relevance score, not exact keyword match
+- The 3-query strategy yields only ~1% additional unique listings vs 1 query (101 vs 100) — diminishing returns from keyword variation on EJL
+- `_build_ejl_search_urls()` correctly encodes keywords with `quote_plus` (spaces → `+`)
+- 0-based pagination confirmed working: page 1 = no `&page=`, page 2 = `&page=1`, etc.
+- 10 s crawl-delay fully respected between ALL requests (not just within a keyword)
+- For v0.3: consider REDUCING to 2 queries instead of 3 (or fewer pages per query) since the overlap is high and 15 page fetches × 10 s = 150 s for marginal gain
+
+### `_SOURCE_PRIORITY` reasoning for Adzuna's position
+
+- Adzuna is a **first-party API** with structured data (not scraped HTML) — equally authoritative to Reed
+- Reed at index 0, Adzuna at index 1: both are API sources; Reed is preferred as a tiebreaker because it's the UK's largest native job board (direct employer relationships)
+- Adzuna at index 1 > Totaljobs (index 2) because Adzuna provides structured salary + employment type data from its API response; Totaljobs is HTML-scraped via StepStone platform
+- Placing Adzuna before Totaljobs/CWJobs means when Reed and Adzuna both have the same listing, Reed's record is kept as canonical (correct: Reed has richer salary_type metadata). When Adzuna and Totaljobs both have the same listing, Adzuna is kept as canonical (correct: Adzuna's structured JSON is more reliable than scraped HTML).
+
+### Tests (2026-06-15)
+
+- **+62 new tests** across: `tests/test_config.py` (6 new), `tests/adapters/test_reed.py` (+7), `tests/adapters/test_adzuna.py` (+7), `tests/adapters/test_energy_jobline.py` (+5), `tests/adapters/test_aviation_job_search.py` (+7)
+- Full suite: **264 passed, 25 skipped, 0 failed** (baseline 202; +62 new)
+- All existing tests pass without modification
+

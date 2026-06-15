@@ -69,7 +69,7 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                 cls(  # type: ignore[call-arg]
                     api_key=settings.reed_api_key,
                     crawl_delay=cfg.crawl_delay,
-                    keywords=cfg.keywords,
+                    keywords_list=cfg.keywords_list,
                     location=cfg.location,
                     results_to_take=cfg.results_to_take,
                     safety_cap=cfg.safety_cap,
@@ -108,10 +108,26 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     app_id=app_id,
                     app_key=app_key,
                     crawl_delay=cfg.crawl_delay,
+                    what_or=extra_az.get("what_or", ""),
+                    what_exclude=extra_az.get("what_exclude", ""),
+                    location0=extra_az.get("location0", "UK"),
+                    category=extra_az.get("category", ""),
                     keywords=cfg.keywords,
                     country=extra_az.get("country", "gb"),
                     results_per_page=extra_az.get("results_per_page", 50),
+                    max_pages=extra_az.get("max_pages", 4),
                     safety_cap=cfg.safety_cap,
+                )
+            )
+        elif name == "energy_jobline":
+            extra_ejl: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    location=cfg.location,
+                    contract_type=extra_ejl.get("contract_type", "contract"),
+                    max_pages_per_query=extra_ejl.get("max_pages_per_query", 5),
                 )
             )
         else:

@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 logger = logging.getLogger("mechpm.config")
+
+_DEFAULT_KEYWORDS = "project manager mechanical engineering"
 
 
 class SourceConfig(BaseModel):
@@ -20,10 +22,31 @@ class SourceConfig(BaseModel):
 
     enabled: bool = False
     crawl_delay: int = 0
-    keywords: str = "project manager mechanical engineering"
+    keywords: str = _DEFAULT_KEYWORDS
+    keywords_list: list[str] = Field(default_factory=list)
     location: str = "UK"
     results_to_take: int = 100
     safety_cap: int = 500
+
+    @model_validator(mode="after")
+    def _normalise_keywords(self) -> "SourceConfig":
+        """Ensure ``keywords_list`` is always populated.
+
+        Resolution order (highest priority first):
+        1. ``keywords_list`` (TOML array) — use as-is when non-empty.
+           If ``keywords`` is also non-default, emit a deprecation warning.
+        2. ``keywords`` (scalar string, legacy) — wrap into a single-item list.
+        """
+        if self.keywords_list:
+            if self.keywords != _DEFAULT_KEYWORDS:
+                logger.warning(
+                    "Both 'keywords' and 'keywords_list' are set in source config — "
+                    "'keywords' is deprecated when 'keywords_list' is present. "
+                    "Remove 'keywords' from config.toml."
+                )
+        else:
+            self.keywords_list = [self.keywords]
+        return self
 
 
 class Settings(BaseModel):

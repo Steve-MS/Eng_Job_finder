@@ -232,6 +232,12 @@ class AdzunaAdapter(SourceAdapter):
     app_key) are loaded from environment variables ADZUNA_APP_ID and
     ADZUNA_APP_KEY.
 
+    Query params (Tommy's v0.2 spec):
+      what_or      — OR-query string (preferred, replaces ``what``/``keywords``).
+      what_exclude — Exclude terms (noise filter at source).
+      location0    — Adzuna location filter (``"UK"`` for nationwide).
+      category     — Adzuna category slug (``"engineering-jobs"``).
+
     Pagination is 1-indexed; the adapter loops until the response result
     count falls below results_per_page or the page cap is reached.
     Returns [] on any unrecoverable error; never raises.
@@ -245,17 +251,27 @@ class AdzunaAdapter(SourceAdapter):
         app_key: str,
         crawl_delay: int = 1,
         keywords: str = _DEFAULT_KEYWORDS,
+        what_or: str = "",
+        what_exclude: str = "",
+        location0: str = "UK",
+        category: str = "",
         country: str = _DEFAULT_COUNTRY,
         results_per_page: int = _DEFAULT_RESULTS_PER_PAGE,
         safety_cap: int = _DEFAULT_SAFETY_CAP,
+        max_pages: int = _MAX_PAGES,
     ) -> None:
         self.app_id = app_id
         self.app_key = app_key
         self.crawl_delay = crawl_delay
         self.keywords = keywords
+        self.what_or = what_or
+        self.what_exclude = what_exclude
+        self.location0 = location0
+        self.category = category
         self.country = country
         self.results_per_page = results_per_page
         self.safety_cap = safety_cap
+        self.max_pages = max_pages
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
         """Fetch contract PM listings from the Adzuna API, paginating to cap.
@@ -273,7 +289,7 @@ class AdzunaAdapter(SourceAdapter):
 
         max_pages = min(
             max(1, self.safety_cap // self.results_per_page),
-            _MAX_PAGES,
+            self.max_pages,
         )
         listings: list[RawListing] = []
 
@@ -320,6 +336,12 @@ class AdzunaAdapter(SourceAdapter):
     ) -> list[RawListing] | None:
         """Fetch one page from the Adzuna API and return parsed RawListings.
 
+        Query strategy (v0.2):
+          - ``what_or`` (preferred) uses Adzuna's native OR semantics.
+          - Falls back to ``what`` (AND semantics) when ``what_or`` is empty.
+          - ``what_exclude`` removes noise at the API level when provided.
+          - ``location0`` and ``category`` are added when non-empty.
+
         Returns:
             list[RawListing] on success (may be empty on last page).
             None on unrecoverable error (caller should stop pagination).
@@ -333,10 +355,20 @@ class AdzunaAdapter(SourceAdapter):
             "app_id": self.app_id,
             "app_key": self.app_key,
             "results_per_page": self.results_per_page,
-            "what": self.keywords,
             "contract": 1,
             "sort_by": "date",
         }
+        # OR query takes precedence over plain keyword search.
+        if self.what_or:
+            params["what_or"] = self.what_or
+        else:
+            params["what"] = self.keywords
+        if self.what_exclude:
+            params["what_exclude"] = self.what_exclude
+        if self.location0:
+            params["location0"] = self.location0
+        if self.category:
+            params["category"] = self.category
 
         attempt = 0
         hit_429 = False

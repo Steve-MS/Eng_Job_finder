@@ -177,3 +177,63 @@ def test_field_population_rates(parsed_listings):
     assert rate("location_raw") >= 0.8, f"location_raw {rate('location_raw'):.1%} < 80%"
     assert rate("url") >= 0.8, f"url {rate('url'):.1%} < 80%"
     assert rate("posted_at") >= 0.8, f"posted_at {rate('posted_at'):.1%} < 80%"
+
+
+# ---------------------------------------------------------------------------
+# M5: _RELEVANT_PATTERNS expansion and _MAX_JOBS cap
+# ---------------------------------------------------------------------------
+
+class TestAviationRelevantPatterns:
+    """Tests for expanded _RELEVANT_PATTERNS (M5)."""
+
+    def test_management_category_still_matches(self):
+        """The original /management/ pattern must still match."""
+        from mechpm.adapters.aviation_job_search import _is_relevant_url
+
+        assert _is_relevant_url(
+            "https://www.aviationjobsearch.com/en-GB/jobs/management/"
+            "project-manager-by-some-company-123456"
+        )
+
+    def test_engineering_category_now_matches(self):
+        """NEW: /engineering/ category path must now match."""
+        from mechpm.adapters.aviation_job_search import _is_relevant_url
+
+        assert _is_relevant_url(
+            "https://www.aviationjobsearch.com/en-GB/jobs/engineering/"
+            "engineering-manager-by-some-company-654321"
+        )
+
+    def test_engineering_manager_slug_matches(self):
+        """NEW: 'engineering_manager' slug must match."""
+        from mechpm.adapters.aviation_job_search import _is_relevant_url
+
+        assert _is_relevant_url(
+            "https://www.aviationjobsearch.com/en-GB/jobs/other/"
+            "engineering-manager-contract-by-firm-111222"
+        )
+
+    def test_program_manager_us_spelling_matches(self):
+        """NEW: 'program_manager' (US spelling) must match."""
+        from mechpm.adapters.aviation_job_search import _is_relevant_url
+
+        assert _is_relevant_url(
+            "https://www.aviationjobsearch.com/en-GB/jobs/other/"
+            "program-manager-by-some-airline-999888"
+        )
+
+    def test_max_jobs_is_50(self):
+        """_MAX_JOBS must equal 50 per Tommy's spec (was 100)."""
+        from mechpm.adapters.aviation_job_search import _MAX_JOBS
+
+        assert _MAX_JOBS == 50, f"_MAX_JOBS should be 50, got {_MAX_JOBS}"
+
+    def test_irrelevant_url_still_excluded(self):
+        """Unrelated engineering roles must not match."""
+        from mechpm.adapters.aviation_job_search import _is_relevant_url
+
+        # Generic maintenance engineer — not PM, not in /management/, not in /engineering/
+        assert not _is_relevant_url(
+            "https://www.aviationjobsearch.com/en-GB/jobs/maintenance/"
+            "aircraft-maintenance-technician-by-airline-777000"
+        )

@@ -5,10 +5,17 @@
 [sources.reed]
 enabled = true
 crawl_delay = 0
-keywords = "project manager mechanical engineering"
-location = ""
 results_to_take = 100
 safety_cap = 500
+
+# Multi-query: adapter iterates this list, unions results, deduplicates by jobId.
+keywords_list = [
+    "project manager mechanical",
+    "project manager HVAC",
+    "project manager M&E building services",
+    "engineering project manager contract",
+]
+location = ""
 
 # Akamai Bot Manager protects all StepStone-family sites (Totaljobs, CWJobs).
 # Live probe 2026-06-15: HTTP 200 with stripped body (~98KB, 0 job cards)
@@ -37,6 +44,15 @@ crawl_delay = 10
 [sources.energy_jobline]
 enabled = true
 crawl_delay = 10
+max_pages_per_query = 5
+location = "United Kingdom"
+contract_type = "contract"
+
+keywords_list = [
+    "project manager",
+    "engineering manager contract",
+    "project manager HVAC",
+]
 
 [sources.the_engineer]
 # Cloudflare-protected — disabled 2026-06-15 pending alternative strategy
@@ -49,8 +65,16 @@ crawl_delay = 3
 
 [sources.adzuna]
 enabled = true
-crawl_delay = 1
+crawl_delay = 3
 country = "gb"
-keywords = "project manager mechanical engineering"
 results_per_page = 50
-safety_cap = 500
+max_pages = 4
+safety_cap = 200
+
+# OR query — matches listings containing ANY of these terms
+what_or = "project manager mechanical HVAC M&E building services engineering"
+# Exclude — kills IT/software noise at source
+what_exclude = "software developer devops cloud SAP ERP digital IT"
+contract = 1
+location0 = "UK"
+category = "engineering-jobs"

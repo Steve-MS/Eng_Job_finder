@@ -33,6 +33,7 @@ _WINDOW_DAYS = 14         # max days between postings to consider duplicate
 # Source priority (lower index = higher priority / more authoritative).
 _SOURCE_PRIORITY: list[str] = [
     "reed",
+    "adzuna",           # first-party API, equally authoritative as Reed
     "totaljobs",
     "cwjobs",
     "railwaypeople",
