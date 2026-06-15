@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "",
+    "day_rate_min": 500.0,
+    "day_rate_max": 550.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": "outside",
+    "contract_type": "contract",
+    "duration_weeks": 24,
+    "start_date": null,
+    "asap_flag": false,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": false,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "edge_case",
+    "fail_reason": "unknown_country_default_reject",
+    "fail_filter": "uk_filter",
+    "notes": "Location empty; no geo signals in title or description. passes_uk defaults to reject and adds 'country_unknown_assumed_non_uk' sanity flag. Must NOT be silently dropped — reporter routes to Review Queue."
+  }
+}

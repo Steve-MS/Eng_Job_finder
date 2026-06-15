@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 
+from mechpm.extractor.regex_fields import _NON_UK_MAP
 from mechpm.models import NormalizedListing
 
 # ---------------------------------------------------------------------------
@@ -189,12 +190,37 @@ def passes_contract(listing: NormalizedListing) -> bool:
 
 
 def passes_uk(listing: NormalizedListing) -> bool:
-    """True only for listings based in the UK (country == 'GB').
+    """True only for listings based in the UK.
 
-    Conservative: a non-GB country code always fails regardless of any other
-    indicator.  UK-specific boards default to GB when location is missing.
+    Decision logic:
+    1. country != "GB" (set by extractor from location field) → reject immediately.
+    2. location present and country == "GB" → confirmed UK → pass.
+    3. location absent, country defaulted to "GB" → corroborate via title/description:
+       a. Non-UK geo signal found in title or description → reject.
+       b. No geo signal found anywhere → default-reject; tag listing with
+          'country_unknown_assumed_non_uk' so the reporter routes it to Review Queue.
+
+    Conservative: unknown country is rejected, never silently assumed UK.
     """
-    return listing.country == "GB"
+    if listing.country != "GB":
+        return False
+
+    # Location was provided and confirmed UK by the extractor
+    if listing.location.strip():
+        return True
+
+    # Location empty: country defaulted to "GB" but unconfirmed.
+    # Corroborate via title then description_raw.
+    for text in (listing.title or "", listing.description_raw or ""):
+        for pattern, _ in _NON_UK_MAP:
+            if pattern.search(text):
+                return False
+
+    # No geo signal at all → unknown country → default-reject, route to Review Queue
+    flag = "country_unknown_assumed_non_uk"
+    if flag not in listing.sanity_flags:
+        listing.sanity_flags.append(flag)
+    return False
 
 
 def passes_pm_role(listing: NormalizedListing) -> bool:

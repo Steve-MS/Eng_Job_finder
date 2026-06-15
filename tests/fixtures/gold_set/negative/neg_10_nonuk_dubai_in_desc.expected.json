@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "",
+    "day_rate_min": 600.0,
+    "day_rate_max": 680.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": null,
+    "contract_type": "contract",
+    "duration_weeks": 72,
+    "start_date": null,
+    "asap_flag": true,
+    "sector": "rail"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": false,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "non_uk_geo_signal_in_description",
+    "fail_filter": "uk_filter",
+    "notes": "Location field empty; UK-looking title; 'based in Dubai' in description body triggers non-UK detection in passes_uk secondary scan."
+  }
+}

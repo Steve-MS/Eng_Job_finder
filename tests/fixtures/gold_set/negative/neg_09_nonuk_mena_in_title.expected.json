@@ -1,0 +1,29 @@
+{
+  "extracted": {
+    "country": "GB",
+    "location_normalized": "",
+    "day_rate_min": 650.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "ir35_status": null,
+    "contract_type": "contract",
+    "duration_weeks": 52,
+    "start_date": null,
+    "asap_flag": false,
+    "sector": "rail"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": false,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "non_uk_geo_signal_in_title",
+    "fail_filter": "uk_filter",
+    "notes": "Location field empty; 'MENA Region' in title triggers non-UK detection in passes_uk secondary scan. country field stays 'GB' (pipeline default) but filter rejects on title signal."
+  }
+}

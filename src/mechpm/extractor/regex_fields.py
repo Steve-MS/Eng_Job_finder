@@ -160,8 +160,10 @@ _MONTH_MAP: dict[str, int] = {
 # example: "Amsterdam, NL"               → country="NL"
 # example: "Dubai, United Arab Emirates" → country="AE"
 # example: "Riyadh, Saudi Arabia"        → country="SA"
+# example: "MENA Region"                 → country="AE"
 _NON_UK_MAP: list[tuple[re.Pattern, str]] = [
-    # Gulf / Middle East
+    # Gulf / Middle East / MENA regional markers
+    (re.compile(r"\b(mena|middle\s+east)\b", re.IGNORECASE), "AE"),
     (re.compile(r"\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE"),
     (re.compile(r"\b(saudi\s+arabia|riyadh|jeddah|ksa)\b", re.IGNORECASE), "SA"),
     (re.compile(r"\b(qatar|doha)\b", re.IGNORECASE), "QA"),
@@ -396,19 +398,43 @@ def normalize_location(raw: str | None) -> str:
     return loc
 
 
-def detect_country(location_raw: str | None) -> str:
+def detect_country(
+    location_raw: str | None,
+    title: str | None = None,
+    description: str | None = None,
+) -> str:
     """Return ISO 3166-1 alpha-2 country code; defaults to 'GB'.
 
-    # example: "Dublin, Ireland"  → "IE"
-    # example: "Amsterdam"        → "NL"
-    # example: "Leeds"            → "GB"
-    # example: None               → "GB"
+    Scan order: location → title → description.  First positive non-UK match wins.
+    When location is present: returns non-UK code if matched, else 'GB' (confirmed UK).
+    When location is absent: scans title then description; returns non-UK code if found.
+    Returns 'GB' as a fallback when no signal is found anywhere.
+    Callers that need to distinguish "confirmed UK" from "no signal / unknown" should
+    check whether location_raw is empty after this returns 'GB'; the filter layer
+    (passes_uk) adds a 'country_unknown_assumed_non_uk' sanity flag and rejects.
+
+    # example: ("Dubai, United Arab Emirates",)           → "AE"
+    # example: (None, "PM – MENA Region")                 → "AE"
+    # example: (None, "Senior PM", "based in Dubai")      → "AE"
+    # example: (None, "Senior PM - Frankfurt office")     → "DE"
+    # example: ("Leeds",)                                  → "GB"
+    # example: (None,)                                     → "GB"  (unknown; filter flags)
     """
-    if not location_raw:
-        return "GB"
-    for pattern, code in _NON_UK_MAP:
-        if pattern.search(location_raw):
-            return code
+    # Primary signal: location
+    if location_raw:
+        for pattern, code in _NON_UK_MAP:
+            if pattern.search(location_raw):
+                return code
+        return "GB"  # location present, no non-UK match → confirmed UK
+
+    # Secondary signals: title then description (location absent)
+    for text in (title, description):
+        if text:
+            for pattern, code in _NON_UK_MAP:
+                if pattern.search(text):
+                    return code
+
+    # No signal found anywhere → 'GB' sentinel (unknown; passes_uk will flag + reject)
     return "GB"
 
 

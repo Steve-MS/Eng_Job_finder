@@ -205,9 +205,9 @@ def test_gold_set_fixture_counts():
             and not f.name.endswith(".dedup_expected.json")
         )
 
-    assert counts["positive"] == 8, f"Expected 8 positives, got {counts['positive']}"
-    assert counts["negative"] == 8, f"Expected 8 negatives, got {counts['negative']}"
-    assert counts["edge_cases"] == 6, f"Expected 6 edge cases, got {counts['edge_cases']}"
+    assert counts["positive"] == 9, f"Expected 9 positives, got {counts['positive']}"
+    assert counts["negative"] == 11, f"Expected 11 negatives, got {counts['negative']}"
+    assert counts["edge_cases"] == 7, f"Expected 7 edge cases, got {counts['edge_cases']}"
     assert counts["duplicate_pairs"] == 6, (
         f"Expected 6 dup-pair files (3 pairs × 2), got {counts['duplicate_pairs']}"
     )
@@ -249,3 +249,98 @@ def test_gold_set_expected_json_valid():
             except json.JSONDecodeError as exc:
                 invalid.append(f"{f.name}: JSON parse error: {exc}")
     assert not invalid, "Invalid expected files:\n" + "\n".join(invalid)
+
+
+# ---------------------------------------------------------------------------
+# Dedicated unit tests for geo-detection changes (2026-06-14)
+# ---------------------------------------------------------------------------
+
+@_SKIP
+def test_passes_uk_unknown_country_adds_sanity_flag():
+    """When location is empty and no geo signal exists, passes_uk rejects and flags."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="test",
+        title="Project Manager",
+        location="",
+        country="GB",
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" in listing.sanity_flags
+
+
+@_SKIP
+def test_passes_uk_mena_in_title_rejected_without_sanity_flag():
+    """MENA signal in title causes rejection; should NOT add the unknown-country flag."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="test",
+        title="Project Manager (High Speed Rail) - MENA Region",
+        location="",
+        country="GB",
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" not in listing.sanity_flags
+
+
+@_SKIP
+def test_passes_uk_dubai_in_description_rejected():
+    """Dubai signal in description causes rejection even with empty location."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="test",
+        title="Senior Project Manager - Rail",
+        location="",
+        country="GB",
+        contract_type="contract",
+        description_raw="The role is based in Dubai supporting a regional rail programme.",
+    )
+    assert passes_uk(listing) is False
+
+
+@_SKIP
+def test_passes_uk_clear_uk_location_passes():
+    """Clear UK location still passes after the default-reject change (regression guard)."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="test",
+        title="Mechanical Project Manager",
+        location="Manchester, UK",
+        country="GB",
+        contract_type="contract",
+    )
+    assert passes_uk(listing) is True
+
+
+@_SKIP
+def test_detect_country_scans_title_when_location_absent():
+    """detect_country returns non-UK code from title when location_raw is empty."""
+    from mechpm.extractor.regex_fields import detect_country
+
+    assert detect_country("", title="PM – MENA Region") == "AE"
+    assert detect_country(None, title="Senior PM - Frankfurt office") == "DE"
+    assert detect_country("", title="Project Manager", description="based in Dubai") == "AE"
+
+
+@_SKIP
+def test_detect_country_location_takes_priority():
+    """Location signal overrides any contrary title/description signal."""
+    from mechpm.extractor.regex_fields import detect_country
+
+    # UK location wins even if title mentions a non-UK city
+    assert detect_country("London, UK", title="Dubai Office") == "GB"
+    # Non-UK location wins
+    assert detect_country("Dubai, UAE", title="Manchester office") == "AE"
+

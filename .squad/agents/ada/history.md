@@ -138,3 +138,48 @@ failure rates on real-world job description text and justify the LLM fallback:
 ## 2026-06-12: Tommy Patched Defects Under Lockout
 
 Tommy patched Ada's two filter defects (UAE country detection + civil/mech disambiguation) under strict reviewer-lockout after Arthur's rejection. Both defects fixed and validated. pytest: 3 failed → 0 failed. Ada: when lockout lifts, broader country/disqualifier coverage is yours.
+
+---
+
+## 2026-06-14: UK Filter Strengthening — Geo Detection from Title/Description
+
+### Problem
+A listing titled *"Project Manager (High Speed Rail) - MENA Region"* (from RailwayPeople) leaked into the main report because:
+1. `location_raw` was empty (adapter calibration gap — separate work).
+2. `detect_country` only scanned `location`; "MENA" in the title was invisible to it.
+3. `passes_uk` defaulted to **allow** when country was unknown (defaulted to "GB").
+
+### Changes delivered
+
+#### `regex_fields.py`
+- Added `(mena|middle\s+east)` → `"AE"` as the first entry in `_NON_UK_MAP` (most general, evaluated before Dubai/UAE specific).
+- Extended `detect_country(location_raw, title=None, description=None)` with two optional parameters. When `location_raw` is absent/empty, the function now scans `title` then `description` in order; first non-UK match wins. Returns `"GB"` as sentinel when no signal is found (preserves `country: str` type contract with `NormalizedListing`).
+- The pipeline call `detect_country(location_raw_value)` (no title/description) is backward-compatible and unchanged.
+
+#### `filters.py`
+- Imported `_NON_UK_MAP` at module level.
+- Rewrote `passes_uk`: explicit non-UK country → reject; location present + GB → pass; location empty (country defaulted to GB) → secondary scan of `title` then `description_raw` using `_NON_UK_MAP`; non-UK signal found → reject; no signal found → reject **and** append `"country_unknown_assumed_non_uk"` to `listing.sanity_flags` for Review Queue routing.
+- Precision improvement: the "default-allow on unknown country" gap is closed.
+
+### Gold-set additions (5 new fixtures)
+| File | Category | Fail filter | Signal location |
+|------|----------|-------------|-----------------|
+| `neg_09_nonuk_mena_in_title` | negative | uk_filter | "MENA" in title |
+| `neg_10_nonuk_dubai_in_desc` | negative | uk_filter | "Dubai" in description |
+| `neg_11_nonuk_germany_in_title` | negative | uk_filter | "Frankfurt" in title |
+| `pos_09_uk_clear_signal` | positive | — (pass) | "Manchester, UK" in location |
+| `edge_07_unknown_country_no_signal` | edge_case | uk_filter | no geo signal anywhere |
+
+### Test results
+- Baseline: 106 passed → Post-change: 123 passed (+17; requirement was ≥ 5 new).
+- 6 new dedicated unit tests for `passes_uk` and `detect_country` behaviour.
+- 0 failures.
+
+### Live verification
+Re-ran `mechpm.cli run-all --skip-fetch` against existing data. "MENA Region" listing now appears in **Review Queue** only; absent from all main report sections.
+
+### Design notes
+- The `country` field on `NormalizedListing` stays `str = "GB"` — no model change needed. The filter is the right place to interpret "empty location + GB default" as unknown.
+- Sanity flag `"country_unknown_assumed_non_uk"` hooks into the existing `sanity_flags: list[str]` field on the model (Polly-owned infrastructure). No new schema changes.
+- The `detect_country` optional params are available for future pipeline updates when title/description are passed at extraction time; the filter's secondary scan provides coverage in the meantime.
+- Decision logged at `.squad/decisions/inbox/ada-uk-filter-strengthening.md`.
