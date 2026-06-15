@@ -49,9 +49,11 @@ _HEADERS = {
 }
 
 # URL-like field names recognised in Jobiqo job dicts.
+# NOTE: "url" in the actual JSON is a nested dict {"__typename": "Url", "path": "..."},
+# not a bare string.  _extract_url() handles that explicitly.
 _URL_FIELDS = frozenset({
     "url", "link", "href", "path", "slug",
-    "jobUrl", "job_url", "permalink",
+    "jobUrl", "job_url", "permalink", "urlNoPrefix",
 })
 
 # Sentinel: JSON path where the jobs list was found (logged once per process).
@@ -148,14 +150,33 @@ def _extract_url(
     job: dict[str, Any],
     base: str = "https://www.railwaypeople.com",
 ) -> str:
-    """Best-effort canonical job URL from the job dict."""
-    for key in ("url", "link", "href", "permalink", "path", "slug"):
+    """Best-effort canonical job URL from the job dict.
+
+    Jobiqo __NEXT_DATA__ stores the URL as a nested dict:
+      ``{"__typename": "Url", "path": "/job/some-title-12345"}``
+    We prefer ``urlNoPrefix`` (identical flat string) then fall back to
+    extracting ``url.path``, then plain string URL fields.
+    """
+    # 1. urlNoPrefix is a flat relative path string — easiest case.
+    url_no_prefix = job.get("urlNoPrefix")
+    if url_no_prefix and isinstance(url_no_prefix, str):
+        return base.rstrip("/") + "/" + url_no_prefix.lstrip("/")
+
+    # 2. url is a dict with a "path" key.
+    url_obj = job.get("url")
+    if isinstance(url_obj, dict):
+        path = url_obj.get("path")
+        if path and isinstance(path, str):
+            return base.rstrip("/") + "/" + path.lstrip("/")
+
+    # 3. Fall back to any plain-string URL-like field.
+    for key in ("link", "href", "permalink", "path", "slug", "jobUrl", "job_url"):
         val = job.get(key)
         if val and isinstance(val, str):
             if val.startswith("http"):
                 return val
-            # Relative path or slug → build full URL
             return base.rstrip("/") + "/" + val.lstrip("/")
+
     return base
 
 
@@ -184,64 +205,127 @@ def _scalar(value: Any) -> str | None:
 # Fields extracted explicitly; everything else goes into metadata.
 _MAPPED_KEYS = frozenset({
     "id", "jobId", "job_id", "nid", "uuid", "slug",
-    "url", "link", "href", "permalink", "path",
+    "url", "urlNoPrefix", "link", "href", "permalink", "path",
     "title",
-    "location", "locationName", "location_name", "city", "region",
-    "salary", "salaryDescription", "salary_description", "rate", "salaryRange",
+    # Jobiqo-specific location fields
+    "address", "location", "locationName", "location_name", "city", "region",
+    # Jobiqo-specific salary fields
+    "salaryRange", "salaryRangeFree",
+    "salary", "salaryDescription", "salary_description", "rate",
+    # Jobiqo-specific employer fields
+    "organization", "organizationProfile",
     "company", "employer", "companyName", "company_name", "advertiser", "client",
+    # Contract type
     "contractType", "contract_type", "jobType", "employment_type",
-    "description", "jobDescription", "body", "summary",
+    # Date fields
+    "published", "publishedAt",
     "datePosted", "date_posted", "postedAt", "posted_at",
-    "createdAt", "created_at", "published", "publishedAt",
+    "createdAt", "created_at",
+    # Description (not present in search results, but mapped if ever added)
+    "description", "jobDescription", "body", "summary",
 })
 
 
 def _map_job_to_raw_listing(job: dict[str, Any]) -> RawListing:
-    """Map a Jobiqo ``__NEXT_DATA__`` job dict to a canonical ``RawListing``."""
-    location = _scalar(
-        job.get("location")
-        or job.get("locationName")
-        or job.get("location_name")
-        or job.get("city")
-        or job.get("region")
-    )
-    salary = _scalar(
-        job.get("salary")
-        or job.get("salaryDescription")
-        or job.get("salary_description")
-        or job.get("rate")
-        or job.get("salaryRange")
-    )
+    """Map a Jobiqo ``__NEXT_DATA__`` job dict to a canonical ``RawListing``.
+
+    Actual Jobiqo schema (confirmed 2026-06-14):
+      - ``organization``       → employer name (flat string)
+      - ``address``            → list of "City, Country" strings
+      - ``url``                → nested dict  ``{"path": "/job/slug-id"}``
+      - ``urlNoPrefix``        → flat relative path string (same as url.path)
+      - ``published``          → ISO-8601 datetime with timezone offset
+      - ``salaryRangeFree``    → dict with minSalary/maxSalary/currencyCode/salaryUnit
+      - ``salaryRange``        → usually empty list in search results
+      - no description field   → description_raw left as None (detail page only)
+    """
+    # --- employer ---
     employer = _scalar(
-        job.get("company")
+        job.get("organization")
+        or job.get("company")
         or job.get("employer")
         or job.get("companyName")
         or job.get("company_name")
         or job.get("advertiser")
         or job.get("client")
     )
+    # Also try organizationProfile.name as last fallback
+    if employer is None:
+        org_profile = job.get("organizationProfile")
+        if isinstance(org_profile, dict):
+            employer = _scalar(org_profile.get("name"))
+
+    # --- location ---
+    # address is a list like ["Manchester, UK", "York, UK"]
+    address_list = job.get("address")
+    if isinstance(address_list, list) and address_list:
+        location = "; ".join(str(a) for a in address_list if a)
+    else:
+        location = _scalar(
+            job.get("location")
+            or job.get("locationName")
+            or job.get("location_name")
+            or job.get("city")
+            or job.get("region")
+        )
+
+    # --- salary ---
+    # salaryRangeFree carries structured min/max when the poster includes it.
+    salary_raw: str | None = None
+    salary_range_free = job.get("salaryRangeFree")
+    if isinstance(salary_range_free, dict):
+        min_sal = salary_range_free.get("minSalary")
+        max_sal = salary_range_free.get("maxSalary")
+        currency_code = salary_range_free.get("currencyCode") or "GBP"
+        salary_unit = salary_range_free.get("salaryUnit")
+        if min_sal is not None or max_sal is not None:
+            sym = "£" if currency_code == "GBP" else currency_code
+            if min_sal is not None and max_sal is not None and min_sal != max_sal:
+                salary_raw = f"{sym}{min_sal} - {sym}{max_sal}"
+            elif min_sal is not None:
+                salary_raw = f"{sym}{min_sal}"
+            else:
+                salary_raw = f"{sym}{max_sal}"
+            if salary_unit:
+                salary_raw += f" {salary_unit}"
+    # Fall back to plain salary/rate fields if present
+    if salary_raw is None:
+        salary_raw = _scalar(
+            job.get("salary")
+            or job.get("salaryDescription")
+            or job.get("salary_description")
+            or job.get("rate")
+        )
+
+    # --- contract type ---
     contract_type = _scalar(
         job.get("contractType")
         or job.get("contract_type")
         or job.get("jobType")
         or job.get("employment_type")
-    )
+    ) or "Contract"  # default: we searched with jobtype=contract
+
+    # --- description ---
+    # Not available in search-result listings; only on individual job detail pages.
     description = _scalar(
         job.get("description")
         or job.get("jobDescription")
         or job.get("body")
         or job.get("summary")
     )
+
+    # --- posted_at ---
     posted_at_raw = (
-        job.get("datePosted")
+        job.get("published")
+        or job.get("publishedAt")
+        or job.get("datePosted")
         or job.get("date_posted")
         or job.get("postedAt")
         or job.get("posted_at")
         or job.get("createdAt")
         or job.get("created_at")
-        or job.get("published")
-        or job.get("publishedAt")
     )
+
     metadata = {k: v for k, v in job.items() if k not in _MAPPED_KEYS}
 
     return RawListing(
@@ -254,7 +338,7 @@ def _map_job_to_raw_listing(job: dict[str, Any]) -> RawListing:
         location_raw=location,
         description_raw=description,
         posted_at=_parse_date(str(posted_at_raw) if posted_at_raw is not None else None),
-        salary_raw=salary,
+        salary_raw=salary_raw,
         contract_type_raw=contract_type,
         metadata=metadata,
     )

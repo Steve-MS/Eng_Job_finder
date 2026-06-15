@@ -155,3 +155,41 @@ High filter-out rate (47/50) is expected: the railwaypeople smoke run returned r
 4. **`rapidfuzz` not in venv** — dedup falls back to identity (no-op). Noted for Scribe — should be added to pyproject.toml if not already there.
 5. **run.bat** — Already calls `python -m mechpm.cli run-all %*` (pass-through args); no change needed.
 
+---
+
+## 2026-06-14: RailwayPeople Adapter Full-Field Calibration
+
+**Problem:** Adapter fetched 50 listings but only `title` was populated. All other fields (employer, location, source_url, posted_at) were null.
+
+**Root cause:** The Jobiqo `__NEXT_DATA__` schema uses non-standard field names not covered by the original mapping code.
+
+### Confirmed JSON field map (Jobiqo platform, 2026-06-14)
+
+JSON path from page root: `props.pageProps.data.jobs.pages` (list of job dicts)
+
+| RawListing field | JSON key | Notes |
+|---|---|---|
+| `title` | `title` | flat string ✓ (already worked) |
+| `source_listing_id` | `id` | integer — coerce to str |
+| `employer` | `organization` | flat string (NOT `company` / `employer`) |
+| `location_raw` | `address` | **list** of "City, Country" strings — join with `"; "` |
+| `url` | `urlNoPrefix` | flat relative path `/job/slug-id` — prepend base URL |
+| (fallback) | `url.path` | nested dict `{"__typename":"Url","path":"/job/..."}` |
+| `posted_at` | `published` | ISO-8601 with TZ offset e.g. `"2026-06-03T14:25:56+01:00"` |
+| `salary_raw` | `salaryRangeFree` | nested dict with `minSalary`/`maxSalary`/`currencyCode`/`salaryUnit`; all null in current search results |
+| `contract_type_raw` | (none) | default `"Contract"` since search uses `jobtype=contract` |
+| `description_raw` | (none) | not in search listing JSON; only on detail page — left `None` |
+
+### Field-name surprises
+- `organization` (not `company`/`employer`) is the flat employer string.
+- `address` is a **list**, not a string. Multi-location jobs can have 5+ entries.
+- `url` is a nested dict `{"__typename": "Url", "path": "/job/slug"}` — NOT a string. `urlNoPrefix` is the same value as a flat string and is easier to use.
+- `salaryRangeFree` is always `{minSalary: null, maxSalary: null, ...}` in search results — rates not publicly disclosed by RailwayPeople listings.
+- `_find_jobs_list()` discovery already found the correct path because the job dicts have a `"url"` key (even nested), satisfying the `_URL_FIELDS` intersection check.
+
+### Live counts (2026-06-14)
+- 50 fetched / 50 extracted / 0 quarantined / 47 filtered_out / 3 stored
+- Population rates: title 100%, employer 100%, location 100%, url 100%, posted_at 100%
+- Rate fields: 0% (expected — search results never expose salary)
+- Test suite: 106 passed, 25 skipped, 0 failed (was 95 before this sprint)
+
