@@ -333,6 +333,14 @@ def synthetic_settings():
             "energy_jobline": SourceConfig(enabled=True, crawl_delay=0),
             "the_engineer": SourceConfig(enabled=True, crawl_delay=0),
             "aviation_job_search": SourceConfig(enabled=True, crawl_delay=0),
+            "adzuna": SourceConfig(
+                enabled=True,
+                crawl_delay=0,
+                keywords="project manager mechanical engineering",
+                country="gb",
+                results_per_page=5,
+                safety_cap=5,
+            ),
         },
     )
 

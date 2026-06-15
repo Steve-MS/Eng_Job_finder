@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -34,6 +35,7 @@ def _get_registry() -> dict:
         from mechpm.adapters.aviation_job_search import AviationJobSearchAdapter
         from mechpm.adapters.the_engineer import TheEngineerAdapter
         from mechpm.adapters.stepstone import StepStoneAdapter
+        from mechpm.adapters.adzuna import AdzunaAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -41,6 +43,7 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["the_engineer"] = TheEngineerAdapter
         _ADAPTER_REGISTRY["totaljobs"] = StepStoneAdapter
         _ADAPTER_REGISTRY["cwjobs"] = StepStoneAdapter
+        _ADAPTER_REGISTRY["adzuna"] = AdzunaAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -88,6 +91,27 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     domain=domain,
                     search_path=search_path,
                     crawl_delay=cfg.crawl_delay,
+                )
+            )
+        elif name == "adzuna":
+            app_id = os.environ.get("ADZUNA_APP_ID", "")
+            app_key = os.environ.get("ADZUNA_APP_KEY", "")
+            if not app_id or not app_key:
+                log.warning(
+                    "ADZUNA_APP_ID or ADZUNA_APP_KEY not set in environment — "
+                    "skipping Adzuna source."
+                )
+                continue
+            extra_az: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    app_id=app_id,
+                    app_key=app_key,
+                    crawl_delay=cfg.crawl_delay,
+                    keywords=cfg.keywords,
+                    country=extra_az.get("country", "gb"),
+                    results_per_page=extra_az.get("results_per_page", 50),
+                    safety_cap=cfg.safety_cap,
                 )
             )
         else:

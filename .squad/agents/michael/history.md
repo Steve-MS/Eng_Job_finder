@@ -428,3 +428,73 @@ This is a specialist aviation board. 297 total active listings; 6 management rol
 - 2 additional smoke tests now pass (`test_adapter_module_importable`, `test_adapter_has_required_interface`)
 - Full suite: **181 passed, 25 skipped, 0 failed** (baseline before this sprint: 153)
 
+---
+
+## 2026-06-15: Adzuna API Adapter
+
+**Task:** Build `src/mechpm/adapters/adzuna.py` — ToS-clean partner API route to Totaljobs, CWJobs, Indeed and other Akamai-blocked UK boards.
+
+### API quirks and field map
+
+| RawListing field | Adzuna JSON key | Notes |
+|---|---|---|
+| `source_listing_id` | `id` | string in JSON response |
+| `title` | `title` | flat string |
+| `employer` | `company.display_name` | nested dict; safe-get required |
+| `location_raw` | `location.display_name` | nested dict; safe-get required |
+| `url` | `redirect_url` | Adzuna tracking URL; contains `utm_source={app_id}` — **must be scrubbed in fixtures** |
+| `posted_at` | `created` | ISO-8601 UTC `"2026-06-09T19:56:23Z"` — clean format, no parsing surprises |
+| `salary_raw` | `salary_min` / `salary_max` | see salary semantics below |
+| `contract_type_raw` | `contract_type` | `"contract"` confirmed for all results under `contract=1` filter |
+| `description_raw` | `description` | truncated snippet (~400 chars) — full description at `redirect_url` |
+
+### Salary semantics (⚠ critical for Ada)
+
+- `salary_min` / `salary_max` are **annualised salary equivalents**, NOT day rates. Adzuna's indexer converts day-rate postings to annual figures using a standard multiplier before storage. Ada MUST apply its own day-rate heuristics and not treat these as day rates.
+- `salary_is_predicted == "1"` means Adzuna's ML model estimated the salary; `"0"` means extracted verbatim from the posting. The `(predicted)` suffix in `salary_raw` flags this for Ada.
+- `metadata["salary_annualised"] = True` is set on every Adzuna listing as an explicit signal.
+- A small fraction of listings (e.g., Mane Contract Services in today's fixture) have `salary_is_predicted = "0"` with high annual equivalents (£117k–£130k) — these appear to be salary-for-permanent-equiv postings mismatched to the contract query. Ada's rate extraction will need to recognise these as implausibly high day rates and flag them.
+
+### Contract filter behaviour
+
+`contract=1` in the query params reliably restricts results to `contract_type == "contract"`. All 5 fixture results and all 10 live results confirmed. The filter is applied at source level by Adzuna — no client-side filtering needed for `contract_type_raw`.
+
+### `__CLASS__` fields
+
+Adzuna's API returns `__CLASS__` fields in nested objects (e.g., `"__CLASS__": "Adzuna::API::Response::Company"`). These are internal Adzuna typing annotations. Ignore them; do not parse or store them.
+
+### Rate limits and pagination
+
+- Free tier: 50 req/min, 1 000 req/day
+- At results_per_page=50 and the 10-page hard cap: ≤10 requests/run — comfortably within daily quota
+- Today's live run (10 total results, 1 page fetched): confirms the narrow current query returns only 10 results total. Tommy's v0.2 broader query slate will increase this.
+- Live page 1 returned 5 results (fixture, results_per_page=5) and 10 results (live run, results_per_page=50). Total count was 10 in both cases — confirms only 1 page of results with the current narrow query.
+
+### `redirect_url` security note
+
+Every Adzuna `redirect_url` contains `utm_source={app_id}` in the query string. When saving fixtures, the scrub step MUST replace the literal app_id value in the URL. Verified: PowerShell regex scrub correctly replaced `app_id` with `REDACTED_APP_ID` in all 5 fixture URLs.
+
+### Patterns that differ from Reed
+
+| Aspect | Reed | Adzuna |
+|---|---|---|
+| Auth | HTTP Basic (key as username) | Query params (`app_id` + `app_key`) |
+| Pagination | skip-based (`resultsToSkip`) | page-number-based (1-indexed) |
+| Rate limit | 10 req/min → 6 s delay | 50 req/min → 1.2 s delay |
+| Date format | `DD/MM/YYYY` string | ISO-8601 UTC `YYYY-MM-DDTHH:MM:SSZ` |
+| Salary type | `salaryType` field ("per day" / "per annum") | Annualised always; no rate-type signal |
+| Salary confidence | Verbatim only | `salary_is_predicted` flag available |
+| Location | `locationName` flat string | `location.display_name` nested |
+| Employer | `employerName` flat | `company.display_name` nested |
+
+### Live run (2026-06-15T10:53Z)
+
+- 1 page fetched, **10 listings** returned, 10 stored in pipeline
+- HTTP 200 throughout; `duration_ms = 1579`
+- `run_manifest.json` confirms: `{"source": "adzuna", "count": 10, "error": null}`
+
+### Tests (2026-06-15)
+
+- **21 new tests** in `tests/adapters/test_adzuna.py` (all fixture-based, no live API calls)
+- Full suite: **202 passed, 25 skipped, 0 failed** (baseline before this task: 181)
+

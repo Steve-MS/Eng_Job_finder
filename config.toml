@@ -46,3 +46,11 @@ crawl_delay = 5
 [sources.aviation_job_search]
 enabled = true
 crawl_delay = 3
+
+[sources.adzuna]
+enabled = true
+crawl_delay = 1
+country = "gb"
+keywords = "project manager mechanical engineering"
+results_per_page = 50
+safety_cap = 500

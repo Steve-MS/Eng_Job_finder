@@ -1,0 +1,180 @@
+{
+  "count": 10,
+  "mean": 58815.66,
+  "results": [
+    {
+      "longitude": -0.727857,
+      "id": "5757471317",
+      "description": "Mechanical Design Engineer Northamptonshire | Full-Time | £40,000 – £50,000  Benefits ATA Recruitment are supporting a well-established engineering business that specialises in the design and manufacture of bespoke mechanical and structural steel systems. Serving a wide range of industrial sectors, the company delivers high-quality engineered solutions from initial concept through to manufacture and installation. Due to continued growth and a strong pipeline of projects, they are now looking to…",
+      "company": {
+        "__CLASS__": "Adzuna::API::Response::Company",
+        "display_name": "ATA Recruitment"
+      },
+      "category": {
+        "label": "Engineering Jobs",
+        "tag": "engineering-jobs",
+        "__CLASS__": "Adzuna::API::Response::Category"
+      },
+      "salary_max": 50000,
+      "contract_time": "full_time",
+      "redirect_url": "https://www.adzuna.co.uk/jobs/details/5757471317?utm_medium=api&utm_source=REDACTED_APP_ID",
+      "adref": "eyJhbGciOiJIUzI1NiJ9.eyJpIjoiNTc1NzQ3MTMxNyIsInMiOiI3T3NxRnA5bzhSR2dfdVV0eHM2d2RRIn0.4NRVcePzeGUB0pUhU8AWL9ci2wZoL8PyC7UIIALTEvE",
+      "title": "Mechanical Design Engineer",
+      "salary_min": 50000,
+      "salary_is_predicted": "0",
+      "latitude": 52.395901,
+      "created": "2026-06-09T19:56:23Z",
+      "contract_type": "contract",
+      "location": {
+        "display_name": "Kettering, Northamptonshire",
+        "__CLASS__": "Adzuna::API::Response::Location",
+        "area": [
+          "UK",
+          "East Midlands",
+          "Northamptonshire",
+          "Kettering"
+        ]
+      },
+      "__CLASS__": "Adzuna::API::Response::Job"
+    },
+    {
+      "adref": "eyJhbGciOiJIUzI1NiJ9.eyJpIjoiNTc1NzM4MDcxNCIsInMiOiI3T3NxRnA5bzhSR2dfdVV0eHM2d2RRIn0.rkbmzgXU5qhhdrmnuEp5uO7Yk8ylw6FxY07akxNeoWA",
+      "redirect_url": "https://www.adzuna.co.uk/jobs/land/ad/5757380714?se=7OsqFp9o8RGg_uUtxs6wdQ&utm_medium=api&utm_source=REDACTED_APP_ID&v=8602EA3A7C930061FF68065A4F1ABF6BF1DAC3CD",
+      "contract_time": "full_time",
+      "salary_min": 40000,
+      "title": "Mechanical Design Engineer",
+      "created": "2026-06-09T15:34:13Z",
+      "latitude": 52.257021,
+      "salary_is_predicted": "0",
+      "__CLASS__": "Adzuna::API::Response::Job",
+      "contract_type": "contract",
+      "location": {
+        "area": [
+          "UK",
+          "East Midlands",
+          "Northamptonshire"
+        ],
+        "__CLASS__": "Adzuna::API::Response::Location",
+        "display_name": "Northamptonshire, East Midlands"
+      },
+      "description": "Mechanical Design Engineer Northamptonshire | Full-Time | £40,000 – £50,000  Benefits ATA Recruitment are supporting a well-established engineering business that specialises in the design and manufacture of bespoke mechanical and structural steel systems. Serving a wide range of industrial sectors, the company delivers high-quality engineered solutions from initial concept through to manufacture and installation. Due to continued growth and a strong pipeline of projects, they are now looking to…",
+      "longitude": -0.910524,
+      "id": "5757380714",
+      "company": {
+        "__CLASS__": "Adzuna::API::Response::Company",
+        "display_name": "ATA Recruitment"
+      },
+      "salary_max": 50000,
+      "category": {
+        "label": "Engineering Jobs",
+        "tag": "engineering-jobs",
+        "__CLASS__": "Adzuna::API::Response::Category"
+      }
+    },
+    {
+      "id": "5756717159",
+      "longitude": -2.58699,
+      "description": "Are you an experienced Mechanical Engineer ready to take ownership of complex, high-risk engineering solutions? Do you have a strong background in delivering design packages through to manufacture and installation? Are you confident leading teams and acting as the technical focal point on critical engineering programmes? The Opportunity A leading engineering consultancy is seeking a Principal Mechanical Engineer to support the development of innovative tooling solutions for complex nuclear deco…",
+      "category": {
+        "tag": "engineering-jobs",
+        "label": "Engineering Jobs",
+        "__CLASS__": "Adzuna::API::Response::Category"
+      },
+      "salary_max": 75911.45,
+      "company": {
+        "__CLASS__": "Adzuna::API::Response::Company",
+        "display_name": "Millbank Holdings"
+      },
+      "title": "Principal Mechanical Engineer",
+      "salary_min": 75911.45,
+      "redirect_url": "https://www.adzuna.co.uk/jobs/land/ad/5756717159?se=7OsqFp9o8RGg_uUtxs6wdQ&utm_medium=api&utm_source=REDACTED_APP_ID&v=0F4C7786A41EF0E74FED801209CA238B459040C6",
+      "adref": "eyJhbGciOiJIUzI1NiJ9.eyJzIjoiN09zcUZwOW84UkdnX3VVdHhzNndkUSIsImkiOiI1NzU2NzE3MTU5In0.OtRWMhOD8B65pliU8Zl-kygwJB0EGRCZTDnbU38n_Gw",
+      "location": {
+        "display_name": "Warrington, Cheshire",
+        "area": [
+          "UK",
+          "North West England",
+          "Cheshire",
+          "Warrington"
+        ],
+        "__CLASS__": "Adzuna::API::Response::Location"
+      },
+      "contract_type": "contract",
+      "__CLASS__": "Adzuna::API::Response::Job",
+      "salary_is_predicted": "1",
+      "latitude": 53.392601,
+      "created": "2026-06-09T01:30:16Z"
+    },
+    {
+      "company": {
+        "display_name": "Mane Contract Services",
+        "__CLASS__": "Adzuna::API::Response::Company"
+      },
+      "salary_max": 130000,
+      "category": {
+        "tag": "engineering-jobs",
+        "label": "Engineering Jobs",
+        "__CLASS__": "Adzuna::API::Response::Category"
+      },
+      "id": "5752140514",
+      "longitude": -0.103815,
+      "description": "Senior Mechanical Engineer - Rail & Infrastructure (HS2) Shape the Future of UK Infrastructure Are you an experienced Mechanical Design Engineer ready to leave a lasting legacy on the UK's largest infrastructure project? We are seeking a Senior Mechanical Engineer to join our world-class Rail & Infrastructure Engineering team. In this pivotal role, you will lead the technical delivery, coordination, and assurance of complex mechanical systems for the landmark HS2 programme. Working within a dyn…",
+      "created": "2026-06-04T16:51:55Z",
+      "latitude": 51.523772,
+      "salary_is_predicted": "0",
+      "__CLASS__": "Adzuna::API::Response::Job",
+      "location": {
+        "display_name": "Farringdon, Central London",
+        "__CLASS__": "Adzuna::API::Response::Location",
+        "area": [
+          "UK",
+          "London",
+          "Central London",
+          "Farringdon"
+        ]
+      },
+      "contract_type": "contract",
+      "adref": "eyJhbGciOiJIUzI1NiJ9.eyJzIjoiN09zcUZwOW84UkdnX3VVdHhzNndkUSIsImkiOiI1NzUyMTQwNTE0In0.OZZsuGRSwHe9lvawC5Sv-AOLIR9-XMPBKW_axnLRU1s",
+      "redirect_url": "https://www.adzuna.co.uk/jobs/land/ad/5752140514?se=7OsqFp9o8RGg_uUtxs6wdQ&utm_medium=api&utm_source=REDACTED_APP_ID&v=5CAF380FDC38A473C2AC8DBF4F5671BFF6954C77",
+      "title": "Senior Mechanical Engineer",
+      "salary_min": 117000
+    },
+    {
+      "adref": "eyJhbGciOiJIUzI1NiJ9.eyJpIjoiNTc0NzY2MTQyMiIsInMiOiI3T3NxRnA5bzhSR2dfdVV0eHM2d2RRIn0.cWiXRfiLVPC342uNxwYnZ5SZdXZhN8RFb8o-c0vYD0E",
+      "contract_time": "full_time",
+      "redirect_url": "https://www.adzuna.co.uk/jobs/land/ad/5747661422?se=7OsqFp9o8RGg_uUtxs6wdQ&utm_medium=api&utm_source=REDACTED_APP_ID&v=21898054F975197415E5D68B234609CCE4B75196",
+      "salary_min": 42000,
+      "title": "Project Manager",
+      "latitude": 50.922329,
+      "created": "2026-06-01T14:30:27Z",
+      "salary_is_predicted": "0",
+      "__CLASS__": "Adzuna::API::Response::Job",
+      "location": {
+        "display_name": "Bolham, Tiverton",
+        "__CLASS__": "Adzuna::API::Response::Location",
+        "area": [
+          "UK",
+          "South West England",
+          "Devon",
+          "Tiverton",
+          "Bolham"
+        ]
+      },
+      "contract_type": "contract",
+      "description": "Project Manager Tiverton £42,000 - £48,000  Pension  Holiday  Additional Birthday Leave  Company Pool Vehicle  Travel expensed  Training  Progression  Development in Renewables Are you a technically strong Project Manager with an engineering background looking for a role where you can lead renewable energy projects from start to finish? On offer is a high-impact position within a growing biomass company, where you'll take ownership of projects and play a key role in delivering nationwide renewa…",
+      "id": "5747661422",
+      "longitude": -3.491804,
+      "company": {
+        "display_name": "Rise Technical Recruitment",
+        "__CLASS__": "Adzuna::API::Response::Company"
+      },
+      "salary_max": 48000,
+      "category": {
+        "__CLASS__": "Adzuna::API::Response::Category",
+        "label": "Engineering Jobs",
+        "tag": "engineering-jobs"
+      }
+    }
+  ],
+  "__CLASS__": "Adzuna::API::Response::JobSearchResults"
+}
