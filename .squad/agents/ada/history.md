@@ -437,3 +437,84 @@ When the construction-sector description disqualifier fires, the title-override 
 
 ### Decision drop
 `.squad/decisions/inbox/ada-site-manager-precision.md` — documents smsts/hands-on-role disqualifier logic and the "construction as circular evidence" constraint for team review.
+
+---
+
+## 2026-06-15: Rate Parser — v0.2 Structured Rate Population
+
+**Requested by:** Steve (steve-ms)
+**Problem:** 43/44 stored listings showed "Rate TBC" in the report. Only 1 listing had `day_rate_min` populated. Rate information was present in most descriptions but the old `parse_rate` in `regex_fields.py` required a leading `£` symbol that most UK listings omit.
+
+### Real-data survey findings
+
+Surveyed 44 DB descriptions. Dominant rate-quoting patterns NOT handled by old parser:
+
+| Pattern | Example | Source |
+|---------|---------|--------|
+| Bare number + `per day` | `321 per day` | Reed (Assistant PM) |
+| `/day` without £ | `575/day` | Reed (PM NEX) |
+| `up to X pd` | `Up to 600 pd` | Reed (PM eDV) |
+| Bare range + `per day` | `400 - 450 per day` | Reed (Mech Site Mgr) |
+| `ph` shorthand (no £) | `46.30ph`, `45ph`, `38- 48ph` | Reed (Project Planner, Lab PM, Facilities PE) |
+| Bare `per hour` | `36.45 per hour umbrella` | Reed (HR Transformation PM) |
+| `/hr` without £ | `41.50/hr umbrella rate` | Reed (PMO Co-ord) |
+| ALL CAPS `PER HOUR` | `40 PER HOUR` | Reed (multiple MERITUS) |
+| `UP TO X PER HOUR` | `UP TO 40 PER HOUR` | Reed (Building & Construction PM) |
+| `umbrella` IR35 context | `umbrella rate`, `(Umbrella)` | Multiple sources |
+
+Also confirmed: Adzuna `salary_raw` is annualised (not day rates) — `salary_annualised: True` in metadata. Description regex is the correct path for Adzuna rate extraction.
+
+### New module: `src/mechpm/extractor/rate_parser.py`
+
+API: `parse_rate(description, salary_raw=None, metadata=None) -> RateInfo`
+
+Returns `RateInfo(day_rate_min, day_rate_max, rate_currency, rate_period, ir35_status, confidence)`.
+
+**Key technical fix:** `ph\b` (trailing word boundary only) instead of `\bph\b`. When `ph` immediately follows a digit (e.g. `46.30ph`), `0` and `p` are both `\w` characters — no `\b` exists between them. The trailing `\b` (after `h`) is sufficient.
+
+**Pattern priority:** day-range-£ > day-range-bare > day-single-£ > day-up-to > day-label > day-single-bare > day-rate-label-implicit > hourly-range-£ > hourly-range-bare > hourly-single-£ > hourly-up-to > hourly-single-bare.
+
+**Guards:**
+- Plausibility: day rates £100–£3000; hourly £10–£250
+- Annual salary blocker: `per annum|per year|annually|pa` within 40 chars of match → skip
+- Adzuna annualised flag: `metadata["salary_annualised"]=True` → skip `salary_raw`
+- HTML stripper: `<[^>]+>` stripped before parsing
+
+**IR35 enrichment:** `_extract_ir35()` now returns `"inside"`, `"outside"`, or `"umbrella"`. Umbrella detection is new (was previously invisible to `regex_fields.parse_ir35`).
+
+### Pipeline wiring
+
+`pipeline.py` now calls `_parse_rate_full(description_for_rate, salary_raw, metadata)`:
+- Uses `fields["description_clean"]` (HTML-stripped) in preference to `description_raw`
+- Sets `ir35_status` from rate_parser; falls back to `tier2.parse_ir35(description_raw)` for edge cases
+- Only sets `rate_currency` when non-None (field default is "GBP"; cannot be None)
+
+### Test suite: `tests/test_rate_parser.py`
+
+33 gold-set tests, all passing. Real strings from DB descriptions — no synthetic cases.
+
+### Before / after (44 stored listings)
+
+| Field | Before | After | Change |
+|-------|--------|-------|--------|
+| `day_rate_min` | 1 (2%) | 18 (41%) | +17 |
+| `day_rate_max` | 0 | 4 (9%) | +4 |
+| `rate_period` | 1 (2%) | 18 (41%) | +17 |
+| `ir35_status` | 10 (23%) | 18 (41%) | +8 (umbrella) |
+
+Target was ≥20 (45%). Achieved 18 (41%). The remaining 26 unrated listings were verified by secondary scan — **none contain any parseable rate pattern** in their description_clean text. Regex ceiling reached; LLM fallback is the next lever.
+
+IR35 breakdown after: `inside: 9`, `umbrella: 8`, `outside: 1`, `None: 26`.
+
+### Sample listings now showing structured rates
+
+| Title | Rate | IR35 |
+|-------|------|------|
+| Project Manager - eDV Clearance | £600/day | inside |
+| Project Manager - NEX | £575/day | umbrella |
+| Senior Project Engineer (E&P) | £550-£600/day | inside |
+| Mechanical Site Manager | £400-£450/day | — |
+| Project Planner | £46/hour | inside |
+
+### Decision drop
+`.squad/decisions/inbox/ada-rate-parser.md` — scope decision documented (hourly rates stored as-is, no day conversion; annual salaries rejected; umbrella as third IR35 enum value).
