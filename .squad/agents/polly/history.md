@@ -163,3 +163,41 @@ out of the main section. Changes in `src/mechpm/reporter/`:
 
 **Tests:** 131 passed, 0 failed (baseline was 128; 3 new tests added via test count increase from
 refactored grouping imports being exercised in existing test paths).
+
+---
+
+## 2026-06-15: rate_period-Aware Rendering Fix
+
+**Problem:** Ada's `rate_parser` stores hourly rates in `day_rate_min`/`day_rate_max`
+with `rate_period='hour'`.  All reporter logic ignored `rate_period`, treating every
+stored figure as £/day.  Result: `£46/hr` displayed as `£46/day` and labelled
+"below typical" (because 46 < 297.5, the below-typical floor for the junior band).
+
+**Root cause:** `_rate_str()`, `rate_context()`, `is_premium()`, `get_sanity_reasons()`,
+`_classify_seniority()`, and both sort-key lambdas all read `day_rate_max or day_rate_min`
+raw with no period adjustment.
+
+**Resolution:**
+
+| Layer | Fix |
+|-------|-----|
+| `domain.py` | Added `HOURS_PER_CONTRACT_DAY = 8` constant and public `effective_day_rate(listing)` helper that returns `raw × 8` when `rate_period='hour'`, else raw. Used in `rate_context()`. |
+| `grouping.py` | `is_premium()` and `get_sanity_reasons()` thresholds (≥£700 premium, ≤£250 low, ≥£1500 high, ≥£700 no-IR35) all use `effective_day_rate()`. |
+| `render.py` | `_rate_str()` appends `/hr` or `/day` from `rate_period`; `_classify_seniority()` and both sort-key lambdas use `effective_day_rate()`. |
+
+**Multiplier:** 8 hours — standard UK engineering contract day (Gatenby Sanderson /
+Kforce / Apex convention).  Single constant `HOURS_PER_CONTRACT_DAY` in `domain.py`.
+Display always shows source-truth unit; 8× is normalisation only.
+
+**Before / after (from live 2026-06-15 report):**
+
+| Listing | Before | After |
+|---------|--------|-------|
+| £46/hr, Inside, South-East | `£46/day \| (below typical, South-East)` | `£46/hr \| (junior-band, South-East)` |
+| £38–£48/hr, Inside, Region TBC | `£38–£48/day \| (below typical, Region TBC)` | `£38–£48/hr \| (junior-band, Region TBC)` |
+
+Note: £40/hr (= £320/day) in South-East still shows "(below typical)" — this is
+correct (290.9 < 297.5 Midlands-equivalent).
+
+**Tests:** 366 → 398 passed (+32 new in `tests/test_rate_period.py`), 25 skipped, 0 failures.
+Decision drop: `.squad/decisions/inbox/polly-rate-period-rendering.md`.

@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from mechpm.models import NormalizedListing
-from mechpm.reporter.domain import rate_context
+from mechpm.reporter.domain import effective_day_rate, rate_context
 from mechpm.reporter.grouping import (
     REGION_ORDER,
     get_sanity_reasons,
@@ -85,10 +85,11 @@ def _rate_str(listing: NormalizedListing) -> str:
     lo, hi = listing.day_rate_min, listing.day_rate_max
     if lo is None and hi is None:
         return "Rate TBC"
+    unit = "/hr" if listing.rate_period == "hour" else "/day"
     if lo and hi and lo != hi:
-        return f"£{lo:,.0f}–£{hi:,.0f}/day"
+        return f"£{lo:,.0f}–£{hi:,.0f}{unit}"
     rate = hi or lo
-    return f"£{rate:,.0f}/day"
+    return f"£{rate:,.0f}{unit}"
 
 
 def _ir35_badge(ir35: str | None) -> str:
@@ -411,7 +412,7 @@ def _render_new_section(new_listings: list[NormalizedListing], today: date) -> l
         key=lambda l: (
             l.start_date is None,
             l.start_date or date.max,
-            -(l.day_rate_max or l.day_rate_min or 0),
+            -(effective_day_rate(l) or 0),
         ),
     )
     for listing in sorted_new:
@@ -448,7 +449,7 @@ def _render_urgent_section(urgent_listings: list[NormalizedListing], today: date
 
 def _classify_seniority(listing: NormalizedListing) -> str:
     """Map listing to a display seniority tier for pipeline sub-sections."""
-    rate = listing.day_rate_max or listing.day_rate_min or 0
+    rate = effective_day_rate(listing) or 0
     if rate >= 700:
         return "senior"
     if rate >= 480:
@@ -496,7 +497,7 @@ def _render_pipeline_section(
                 key=lambda l: (
                     l.start_date is None,
                     l.start_date or date.max,
-                    -(l.day_rate_max or l.day_rate_min or 0),
+                    -(effective_day_rate(l) or 0),
                 )
             )
             for listing in tier_listings:

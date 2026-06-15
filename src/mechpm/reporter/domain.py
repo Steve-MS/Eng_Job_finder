@@ -61,6 +61,18 @@ RED_FLAG_PATTERNS: list[tuple[str, str]] = [
 
 
 # ---------------------------------------------------------------------------
+# Normalisation constant
+# ---------------------------------------------------------------------------
+
+HOURS_PER_CONTRACT_DAY: int = 8
+"""Standard UK contract working day used to convert hourly rates to a
+day-equivalent figure for band classification, premium-rate checks, and
+sort keys.  The display always shows the source-truth unit (£/hr or £/day).
+8 hours is the standard contract day in UK engineering; 7.5 is sometimes
+used for PAYE roles but 8 is the conventional day-rate benchmark.
+"""
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -69,6 +81,26 @@ def _effective_rate(listing: "NormalizedListing") -> float | None:
     if listing.day_rate_max:
         return listing.day_rate_max
     return listing.day_rate_min
+
+
+def effective_day_rate(listing: "NormalizedListing") -> float | None:
+    """Return the rate normalised to a day-equivalent for comparison purposes.
+
+    When ``rate_period='hour'``, multiplies the raw rate by
+    ``HOURS_PER_CONTRACT_DAY`` (8) to produce a comparable daily figure.
+    When ``rate_period='day'`` or ``None``, returns the raw value unchanged.
+    Prefers ``day_rate_max``; falls back to ``day_rate_min``.
+    Returns ``None`` when both rate fields are ``None``.
+
+    The normalised value is used for banding, premium-rate detection, sanity
+    thresholds, and sort keys — never displayed to the user directly.
+    """
+    raw = _effective_rate(listing)
+    if raw is None:
+        return None
+    if listing.rate_period == "hour":
+        return raw * HOURS_PER_CONTRACT_DAY
+    return raw
 
 
 def _infer_seniority_from_rate(rate: float) -> str:
@@ -93,7 +125,7 @@ def rate_context(listing: "NormalizedListing") -> str:
     """
     from mechpm.reporter.grouping import resolve_region  # local import avoids circular dep
 
-    rate = _effective_rate(listing)
+    rate = effective_day_rate(listing)
     if rate is None:
         return "(rate unknown)"
 
@@ -101,6 +133,7 @@ def rate_context(listing: "NormalizedListing") -> str:
     multiplier = REGION_PAY_MULTIPLIERS.get(region, 1.00)
 
     # Normalise to Midlands-equivalent before comparing against universal bands.
+    # effective_day_rate() has already converted hourly → daily if needed.
     normalised = rate / multiplier
     band = _infer_seniority_from_rate(normalised)
     lo, hi = RATE_BANDS_BY_SENIORITY[band]

@@ -220,8 +220,9 @@ def is_urgent(listing: NormalizedListing, today: date) -> bool:
 
 
 def is_premium(listing: NormalizedListing) -> bool:
-    """Return True when rate ≥ £700/day AND IR35 is outside."""
-    rate = listing.day_rate_max or listing.day_rate_min
+    """Return True when effective day rate ≥ £700 AND IR35 is outside."""
+    from mechpm.reporter.domain import effective_day_rate  # local to avoid circular dep
+    rate = effective_day_rate(listing)
     if rate is None:
         return False
     return rate >= 700 and listing.ir35_status == "outside"
@@ -229,23 +230,23 @@ def is_premium(listing: NormalizedListing) -> bool:
 
 def get_sanity_reasons(listing: NormalizedListing, today: date | None = None) -> list[str]:
     """Return all sanity-flag reasons for a listing (empty list = clean)."""
-    from mechpm.reporter.domain import scan_red_flags
+    from mechpm.reporter.domain import effective_day_rate, scan_red_flags
 
     reasons: list[str] = list(listing.sanity_flags)  # include Ada's extraction flags
     _today = today or date.today()
 
-    rate_hi = listing.day_rate_max
-    rate_lo = listing.day_rate_min
-    effective = rate_hi or rate_lo
+    # Use the day-equivalent rate for threshold comparisons so that hourly
+    # listings (rate_period='hour') are checked against meaningful daily figures.
+    effective = effective_day_rate(listing)
 
     if effective is not None:
         if effective <= 250:
-            reasons.append(f"Rate £{effective:,.0f}/day is suspiciously low (≤ £250)")
+            reasons.append(f"Rate £{effective:,.0f}/day equiv is suspiciously low (≤ £250)")
         if effective >= 1500:
-            reasons.append(f"Rate £{effective:,.0f}/day is unusually high (≥ £1500)")
+            reasons.append(f"Rate £{effective:,.0f}/day equiv is unusually high (≥ £1500)")
         if effective >= 700 and listing.ir35_status in (None, "undetermined"):
             reasons.append(
-                f"Rate £{effective:,.0f}/day ≥ £700 but IR35 status not stated — "
+                f"Rate £{effective:,.0f}/day equiv ≥ £700 but IR35 status not stated — "
                 "review before quoting to Steve"
             )
 
