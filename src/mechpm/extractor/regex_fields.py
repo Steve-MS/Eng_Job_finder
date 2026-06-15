@@ -168,18 +168,47 @@ _NON_UK_MAP: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE"),
     (re.compile(r"\b(saudi\s+arabia|riyadh|jeddah|ksa)\b", re.IGNORECASE), "SA"),
     (re.compile(r"\b(qatar|doha)\b", re.IGNORECASE), "QA"),
-    # Africa
+    # Africa / Middle East
     (re.compile(r"\b(egypt|cairo|alexandria)\b", re.IGNORECASE), "EG"),
-    # Europe
-    (re.compile(r"\b(dublin|ireland|republic\s+of\s+ireland)\b", re.IGNORECASE), "IE"),
-    (re.compile(r"\b(netherlands|amsterdam|rotterdam)\b", re.IGNORECASE), "NL"),
-    (re.compile(r"\b(germany|berlin|munich|hamburg|frankfurt)\b", re.IGNORECASE), "DE"),
-    (re.compile(r"\b(france|paris|lyon|marseille)\b", re.IGNORECASE), "FR"),
+    (re.compile(r"\b(south\s+africa|cape\s+town|johannesburg|durban|pretoria)\b", re.IGNORECASE), "ZA"),
+    (re.compile(r"\b(mozambique|maputo)\b", re.IGNORECASE), "MZ"),
+    (re.compile(r"\b(nigeria|lagos|abuja)\b", re.IGNORECASE), "NG"),
+    # Europe (EU / non-UK)
+    (re.compile(r"\b(dublin|republic\s+of\s+ireland)\b", re.IGNORECASE), "IE"),
+    # NOTE: bare "ireland" intentionally excluded — "Northern Ireland" is UK.
+    (re.compile(r"\b(netherlands|amsterdam|rotterdam|eindhoven)\b", re.IGNORECASE), "NL"),
+    (re.compile(r"\b(germany|berlin|munich|hamburg|frankfurt|cologne|stuttgart|dusseldorf)\b", re.IGNORECASE), "DE"),
+    (re.compile(r"\b(france|paris|lyon|marseille|toulouse|bordeaux|lille)\b", re.IGNORECASE), "FR"),
+    (re.compile(r"\b(spain|madrid|barcelona|seville|bilbao|valencia)\b", re.IGNORECASE), "ES"),
+    (re.compile(r"\b(italy|rome|milan|florence|naples|turin|venice|bologna)\b", re.IGNORECASE), "IT"),
+    (re.compile(r"\b(norway|oslo|bergen|stavanger|trondheim)\b", re.IGNORECASE), "NO"),
+    (re.compile(r"\b(denmark|copenhagen|aarhus|odense)\b", re.IGNORECASE), "DK"),
+    (re.compile(r"\b(sweden|stockholm|gothenburg|malmo)\b", re.IGNORECASE), "SE"),
+    (re.compile(r"\b(finland|helsinki|tampere|espoo)\b", re.IGNORECASE), "FI"),
+    (re.compile(r"\b(poland|warsaw|krakow|wroclaw|gdansk|poznan)\b", re.IGNORECASE), "PL"),
+    (re.compile(r"\b(czechia|czech\s+republic|prague|brno|pilsen|plzen)\b", re.IGNORECASE), "CZ"),
+    (re.compile(r"\b(belgium|brussels|antwerp|ghent|liege)\b", re.IGNORECASE), "BE"),
+    (re.compile(r"\b(austria|vienna|graz|salzburg|innsbruck|linz)\b", re.IGNORECASE), "AT"),
+    (re.compile(r"\b(switzerland|zurich|geneva|bern|basel|lausanne)\b", re.IGNORECASE), "CH"),
+    (re.compile(r"\b(portugal|lisbon|porto|braga)\b", re.IGNORECASE), "PT"),
+    (re.compile(r"\b(romania|bucharest|cluj|timisoara)\b", re.IGNORECASE), "RO"),
     # Americas
-    (re.compile(r"\b(usa|united\s+states|new\s+york|los\s+angeles|chicago|houston|san\s+francisco)\b", re.IGNORECASE), "US"),
+    (re.compile(r"\b(usa|united\s+states|new\s+york|los\s+angeles|chicago|houston|san\s+francisco|sacramento|boston|seattle|dallas|atlanta|denver|phoenix|miami)\b", re.IGNORECASE), "US"),
+    (re.compile(r"\b(canada|toronto|vancouver|montreal|calgary|ottawa|edmonton)\b", re.IGNORECASE), "CA"),
+    (re.compile(r"\b(brazil|s[aã]o\s+paulo|rio\s+de\s+janeiro|brasilia|campinas|curitiba|belo\s+horizonte|tauba[t])\b", re.IGNORECASE), "BR"),
+    (re.compile(r"\b(colombia|bogota|medellin|cali)\b", re.IGNORECASE), "CO"),
+    (re.compile(r"\b(mexico|monterrey|guadalajara|queretaro|veracruz|puebla|tijuana)\b", re.IGNORECASE), "MX"),
     # Asia-Pacific
     (re.compile(r"\b(singapore)\b", re.IGNORECASE), "SG"),
-    (re.compile(r"\b(india|mumbai|delhi|bangalore|chennai|hyderabad|pune)\b", re.IGNORECASE), "IN"),
+    (re.compile(r"\b(india|mumbai|delhi|bangalore|chennai|hyderabad|pune|ahmedabad|kolkata)\b", re.IGNORECASE), "IN"),
+    (re.compile(r"\b(china|beijing|shanghai|guangzhou|shenzhen|chengdu|wuhan|xi.an|suzhou|haikou|hainan|jiangsu|shandong)\b", re.IGNORECASE), "CN"),
+    (re.compile(r"\b(malaysia|kuala\s+lumpur|penang|johor|kota\s+kinabalu)\b", re.IGNORECASE), "MY"),
+    (re.compile(r"\b(thailand|bangkok|chiang\s+mai|phuket)\b", re.IGNORECASE), "TH"),
+    (re.compile(r"\b(australia|sydney|melbourne|brisbane|canberra|adelaide|darwin|hobart)\b", re.IGNORECASE), "AU"),
+    # NOTE: "Perth" excluded — Perth is also a major city in Scotland, UK.
+    (re.compile(r"\b(new\s+zealand|auckland|wellington|christchurch)\b", re.IGNORECASE), "NZ"),
+    (re.compile(r"\b(japan|tokyo|osaka|nagoya|fukuoka|sapporo|kyoto)\b", re.IGNORECASE), "JP"),
+    (re.compile(r"\b(south\s+korea|korea|seoul|busan|incheon)\b", re.IGNORECASE), "KR"),
 ]
 
 

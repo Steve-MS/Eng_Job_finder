@@ -44,14 +44,20 @@ crawl_delay = 10
 [sources.energy_jobline]
 enabled = true
 crawl_delay = 10
+# 5 pages × 4 queries = up to 20 page fetches (10 s crawl-delay each).
 max_pages_per_query = 5
 location = "United Kingdom"
 contract_type = "contract"
 
+# Keywords deliberately omit "United Kingdom" to avoid over-restricting EJL's
+# text-search.  Geo-filtering is handled at two levels:
+#   1. ?location=United+Kingdom URL param (partial — EJL returns some global results).
+#   2. Adapter-level _is_clearly_non_uk() post-fetch guard (drops confirmed non-UK).
 keywords_list = [
-    "project manager",
-    "engineering manager contract",
-    "project manager HVAC",
+    "project manager mechanical",
+    "project manager HVAC M&E",
+    "project manager energy oil gas",
+    "project engineer mechanical offshore",
 ]
 
 [sources.the_engineer]

@@ -295,3 +295,75 @@ A listing *"ewi Recruitment — Project Manager (High Speed Rail) - MENA Region"
 - `_KNOWN_NON_UK_CODES` is derived directly from `_NON_UK_MAP` at import time; adding a new country to the map automatically extends both detection and hard-reject coverage.
 - The "soft-reject / Review Queue" path is now reserved exclusively for genuinely indeterminate listings (no location, no title/desc geo signal). All positively-identified non-UK listings are silently dropped.
 - Decision logged at `.squad/decisions/inbox/ada-hard-reject-non-uk.md`.
+
+---
+
+## EJL T4 Gate Diagnosis & Fix (2026-06-15)
+
+**Requested by:** Steve (steve-ms)  
+**Problem:** v0.2 pipeline fetched 101 EJL listings but stored 0. T4 gate requires EJL ≥5 stored.
+
+### Root cause (threefold)
+
+1. **EJL's `?location=United+Kingdom` URL param is ineffective.** EJL is a global energy
+   job board (191k listings). The location parameter doesn't filter results — 71/101 listings
+   had confirmed non-UK locations (USA, Germany, Spain, Brazil, Italy etc.).
+
+2. **`_NON_UK_MAP` had gaps.** `detect_country()` only covered ~12 countries. 19 non-UK
+   listings (Spain, Italy, Brazil, China, Malaysia, Australia, Mexico, Czech Republic,
+   Thailand, Mozambique, Colombia) incorrectly got `country="GB"` → latent precision bug.
+   These 19 were then rejected by `passes_pm_role` (non-PM titles) but the UK guard
+   should have stopped them first.
+
+3. **PM_TITLE_RE too narrow for EJL's energy-sector vocabulary.** EJL UK listings use
+   project-controls titles absent from PM_TITLE_RE: "Senior Planner", "Planning Engineer",
+   "Contracts & Cost Control Engineer". These are legitimate PM-equivalent roles in oil &
+   gas / power sectors.
+
+### Fixes applied
+
+| File | Change |
+|------|--------|
+| `energy_jobline.py` | Added `_is_clearly_non_uk()` adapter-level guard — drops confirmed non-UK before returning from `fetch()`. Regex covers country-suffixed location strings and "in [City, Country]" title patterns. |
+| `regex_fields.py` | Expanded `_NON_UK_MAP` from ~12 → ~40 entries. Added Spain, Italy, Brazil, China, Malaysia, Australia, Mexico, Norway, Denmark, Sweden, Finland, Poland, Czech Republic, Belgium, Austria, Switzerland, Portugal, Romania, Colombia, Thailand, Mozambique, Nigeria, South Africa, Canada, New Zealand, Japan, South Korea. "ireland" changed to "republic of ireland" to avoid false-rejecting Northern Ireland listings. |
+| `filters.py` | Extended `PM_TITLE_RE` with energy project-controls titles: `planning engineer`, `project planner`, `senior/lead planner`, `project controls manager/engineer/lead/specialist`, `cost control engineer`, `contracts? engineer`. |
+| `config.toml` | EJL `keywords_list` changed to 4 focused keyword strings (without embedded "United Kingdom"), `max_pages_per_query=5`. |
+| `tests/test_ejl_regression.py` | NEW: 44 regression tests covering `_is_clearly_non_uk()`, `detect_country()` extended, end-to-end filters, energy project-controls titles. |
+| `tests/fixtures/gold_set/positive/` | NEW pos_17 (Senior Planner) + pos_18 (Planning Engineer) from EJL Blantyre listings. |
+| `tests/test_filters.py` | Updated positive gold-set count assertion 16 → 18. |
+
+### Before / after
+
+| Source | Before | After |
+|--------|--------|-------|
+| Reed | 28 | 31 |
+| RailwayPeople | 5 | 5 |
+| Adzuna | 5 | 5 |
+| **EJL** | **0** | **3** |
+| Aviation | 2 | 2 |
+| **Total** | **40** | **46** |
+
+### T4 gate gap
+
+Achieved 3 EJL stored (target was ≥5). EJL's live data at this run time only contained
+3 UK PM-adjacent listings surfaceable by keyword search. The structural fix is complete
+and correct; the residual gap reflects EJL's limited UK contract PM listing availability
+at this point in time.
+
+Proposed gate revision: **EJL ≥3 stored per run** (OR ≥5 accumulated over 7 days).
+See `.squad/decisions/inbox/ada-ejl-t4-gate-root-cause.md` for full write-up.
+
+### Test suite
+
+- Baseline: 264 passed, 0 failed
+- After fix: **326 passed, 25 skipped, 0 failed** (326 > 264 ✓)
+
+### Key design learnings
+
+- EJL embeds location in title format `"[Title] in [City, Country]"` — good geo signal.
+- Adapter-level country guard is appropriate for sources with known global content pollution.
+- In energy/oil & gas, PM function = multiple title patterns; PM_TITLE_RE must cover the full
+  project-controls vocabulary (planning, cost control, contracts) not just "project manager".
+- Reed also benefits from the PM_TITLE_RE expansion (+3 Reed listings for planning roles).
+- Never embed "United Kingdom" in EJL keyword text — the site's FTS only returns listings
+  containing that exact phrase in job body copy, which is rare.

@@ -1,0 +1,20 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "sector": "energy"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "energy",
+    "difficulty": "structured",
+    "notes": "EJL fix 2026-06-15: 'senior planner' added to PM_TITLE_RE. In oil&gas project delivery, Senior Planner owns project schedule = PM equivalent. Seen on live EJL Blantyre, UK listings."
+  }
+}

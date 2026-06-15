@@ -54,6 +54,14 @@ PM_TITLE_RE = re.compile(
     r"|project\s+engineer"                   # "Project Engineer" (PM-adjacent in energy)
     r"|planning\s+manager"                   # "Planning Manager (Mechanical)"
     r"|package\s+manager"                    # "Package Manager — HVAC"
+    # --- NEW (A1-b): energy-sector project-controls titles (EJL fix 2026-06-15) ---
+    # In oil & gas / power / nuclear, planners own schedule delivery = PM role.
+    r"|planning\s+engineer"                  # "Planning Engineer" (project controls)
+    r"|project\s+planner"                    # "Project Planner"
+    r"|(?:senior|lead)\s+planner"            # "Senior Planner", "Lead Planner"
+    r"|project\s+controls?\s+(?:manager|engineer|lead|specialist)"  # "Project Controls Manager"
+    r"|cost\s+control\s+(?:engineer|manager|specialist|lead)"       # "Cost Control Engineer" (energy PM-controls)
+    r"|contracts?\s+engineer"                # "Contracts Engineer" (contract admin = PM function in energy)
     r")\b",
     re.IGNORECASE,
 )

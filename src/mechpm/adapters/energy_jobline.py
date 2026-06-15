@@ -47,6 +47,37 @@ _MAX_PAGES = 5
 _PAGE_DELAY_SECONDS = 10  # robots.txt Crawl-delay: 10
 _REQUEST_TIMEOUT = 30.0
 
+# EJL is a global energy job board; the ?location=United+Kingdom URL parameter
+# does NOT reliably filter to UK-only results.  These patterns provide a
+# post-fetch guard that drops listings whose location_raw or title contains
+# a clearly non-UK country.  Only the most unambiguous country names are
+# included to avoid false-positives (e.g. "Perth" is omitted because it is
+# also a Scottish city).
+_NON_UK_LOCATION_RE = re.compile(
+    r"\b("
+    r"united\s+states|usa|u\.s\.a"
+    r"|germany|france|spain|italy|brazil|china|india|australia"
+    r"|netherlands|malaysia|singapore|qatar|mexico|norway|denmark"
+    r"|sweden|finland|poland|czechia|czech\s+republic|belgium|austria"
+    r"|switzerland|portugal|romania|colombia|thailand|south\s+africa"
+    r"|mozambique|nigeria|new\s+zealand|japan|south\s+korea"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_clearly_non_uk(location_raw: str | None, title: str = "") -> bool:
+    """Return True when location is confirmed non-UK.
+
+    Used as an early-reject in fetch() to drop EJL's global listings before
+    they enter the extraction / filter pipeline.
+
+    Only returns True on unambiguous non-UK signals; uncertain/absent
+    locations are kept for the pipeline's passes_uk to decide.
+    """
+    combined = f"{location_raw or ''} {title}"
+    return bool(_NON_UK_LOCATION_RE.search(combined))
+
 
 def _build_ejl_search_urls(
     keywords_list: list[str],
@@ -469,6 +500,23 @@ class EnergyJoblineAdapter(SourceAdapter):
             return list(seen.values())
 
         listings = list(seen.values())
+        # Post-fetch UK guard: EJL is a global board and ?location=United+Kingdom
+        # does not reliably restrict results.  Drop listings we can confirm are
+        # non-UK; leave uncertain ones for the pipeline's passes_uk to decide.
+        before_uk_filter = len(listings)
+        listings = [
+            lst for lst in listings
+            if not _is_clearly_non_uk(lst.location_raw, lst.title)
+        ]
+        dropped = before_uk_filter - len(listings)
+        if dropped:
+            logger.info(
+                "energy_jobline: UK guard dropped %d clearly non-UK listing(s) "
+                "(%d → %d remain).",
+                dropped,
+                before_uk_filter,
+                len(listings),
+            )
         logger.info(
             "energy_jobline: fetched %d unique listing(s) "
             "(queries=%d, max_pages_per_query=%d, since=%s).",
