@@ -215,3 +215,40 @@ v0.2 query-slate expansion sprint concluded. Multi-session continuation across 8
 - Polly: Rate-period-aware rendering (seniority bands + normalization)
 
 Final state: **44 stored across 5 sources, 18 with structured day-rate, 398 tests passing.**
+
+---
+
+## 2026-06-15: HTML Report Renderer (Steve request)
+
+**Request:** Steve asked for a real HTML report he can open in a browser with clickable links back to roles.
+
+**Output strategy chosen:** Generate BOTH formats every run.
+- `reports/{date}.md` — diff-friendly text artefact (unchanged)
+- `reports/{date}.html` — human-facing browseable view (NEW)
+
+No new CLI flag needed; HTML is always co-generated alongside Markdown via the same `generate_report()` call.
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/html_render.py` | New — self-contained HTML renderer |
+| `src/mechpm/reporter/generate.py` | Wired in `render_weekly_html()` after `render_weekly()` |
+| `tests/test_html_report.py` | 14 new tests |
+| `reports/2026-06-15.html` | Re-rendered live report |
+
+**Visual style decisions:**
+- Clean executive-briefing palette: white cards on light-grey page, blue accent (#1a56db)
+- IR35 colour-coding: green pills (outside), amber pills (inside), blue pills (umbrella), grey (not-stated)
+- Rate-band context as a subtle grey pill tag inline with the rate figure
+- Flag pills (🆕 New, ⚡ Urgent Start, 💰 Premium Rate, ⚠️ Review) as coloured badges at card top
+- Role title is a clickable link; "View Full Listing" button per URL (multi-URL dedup listings show all)
+- Card accent stripe on left border: blue (new), purple (premium), orange (urgent), amber (review)
+- Summary tiles grid at top: New / Urgent / Premium / Under Review / Total counts
+- Semantic HTML: `<article>`, `<section>`, `<header>`, `<footer>` throughout
+- CSS embedded in `<style>`; no external assets; single-file portable
+
+**Live report:** `reports/2026-06-15.html` — 146KB, 44 role cards, 45 unique clickable links.
+
+**Tests:** 398 → 412 passed (+14), 25 skipped, 0 failures.
+Commit: `feat(reporter): add HTML report renderer with clickable role links`
