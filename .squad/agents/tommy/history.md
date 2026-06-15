@@ -143,3 +143,29 @@ v0.2 query-slate expansion sprint concluded. Multi-session continuation across 8
 - Polly: Rate-period-aware rendering (seniority bands + normalization)
 
 Final state: **44 stored across 5 sources, 18 with structured day-rate, 398 tests passing.**
+
+### 2026-06-15: Deployment — GitHub Action + Pages (Zero-Install for PMs)
+
+**Problem:** Non-technical PMs can't install Python locally. The agent needed a zero-install deployment path that produces a bookmarkable URL refreshed weekly.
+
+**Solution:** GitHub Actions weekly cron + GitHub Pages.
+
+**Key architectural decisions:**
+1. **Cron:** `0 16 * * 5` (Friday 17:00 BST = 16:00 UTC)
+2. **DB persistence:** Commit `data/mechpm.sqlite` back to repo after each run (Option A — simplest, fork-friendly, no eviction risk unlike Actions cache)
+3. **Pages:** Modern `actions/deploy-pages@v4` workflow-based deploy (no `gh-pages` branch)
+4. **Archive:** `reports/index.html` (listing page) + `reports/latest.html` (stable redirect to newest)
+5. **Secrets:** `REED_API_KEY`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` — 3 secrets the user must set
+6. **Failure isolation:** `continue-on-error: true` on pipeline step; partial reports still publish
+7. **Manual trigger:** `workflow_dispatch:` always available
+
+**Deliverables:**
+- `.github/workflows/weekly.yml` — full CI/CD pipeline (checkout → Python → install → pytest gate → run-all → index → commit → Pages deploy)
+- `src/mechpm/reporter/index_render.py` — generates archive index + latest redirect
+- `tests/test_index_render.py` — 13 tests (discovery, ordering, links, redirect, edge cases)
+- `.env.example` — restored with current env var list
+- `README.md` — complete rewrite: hosted-first "5 steps to bookmark your report" + local fallback
+
+**Test state:** 425 passed, 25 skipped, 0 failed.
+
+**User action required:** Steve must add 3 repo secrets + enable Pages (source: GitHub Actions) + trigger first run manually.
