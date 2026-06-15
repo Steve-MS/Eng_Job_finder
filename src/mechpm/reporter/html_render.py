@@ -1,0 +1,840 @@
+"""HTML report renderer — converts NormalizedListing objects to a self-contained HTML report.
+
+Mirrors the section order of render.py (Markdown) but produces a single-file
+HTML document with embedded CSS suitable for opening locally in a browser.
+All business logic (grouping, banding, IR35 badges, rate formatting) is
+imported from the existing render.py / domain.py / grouping.py modules — only
+the formatting layer changes.
+
+Section order (matches Markdown):
+    1. Header + Summary block
+    2. 🆕 New This Week
+    3. 💰 Premium Rate
+    4. ⚡ Urgent Starts
+    5. All Current Roles — By Region
+    6. ⚠️ Review Queue
+    7. Footer (generation timestamp, total count)
+
+2026-06-15
+"""
+from __future__ import annotations
+
+import html as html_mod
+from datetime import date, datetime, timezone, timedelta
+from pathlib import Path
+
+from mechpm.models import NormalizedListing
+from mechpm.reporter.domain import effective_day_rate, rate_context
+from mechpm.reporter.grouping import (
+    REGION_ORDER,
+    get_sanity_reasons,
+    get_soft_notes,
+    group_by_region,
+    is_geo_flagged,
+    is_premium,
+    is_sanity_flagged,
+    is_urgent,
+)
+from mechpm.reporter.models import RunMetadata
+from mechpm.reporter.render import (
+    _classify_seniority,
+    _duration_str,
+    _rate_str,
+    _source_name_from_url,
+    _start_str_safe,
+    _SENIORITY_LABELS,
+    _REGION_FLAGS,
+    _SUMMARY_MAX_CHARS,
+    _SUMMARY_COMPACT_CHARS,
+)
+
+# ---------------------------------------------------------------------------
+# Embedded CSS — single source of truth for the report style
+# ---------------------------------------------------------------------------
+
+_CSS = """
+:root {
+    --bg:           #f7f8fa;
+    --card-bg:      #ffffff;
+    --border:       #e2e5ea;
+    --accent:       #1a56db;
+    --accent-hover: #1040b0;
+    --text:         #1a1d23;
+    --muted:        #6b7280;
+    --ir35-outside:  #166534;
+    --ir35-out-bg:   #dcfce7;
+    --ir35-inside:   #92400e;
+    --ir35-in-bg:    #fef3c7;
+    --ir35-umbrella: #1e40af;
+    --ir35-umb-bg:   #dbeafe;
+    --ir35-none:     #374151;
+    --ir35-none-bg:  #f3f4f6;
+    --tag-bg:        #f1f5f9;
+    --tag-text:      #475569;
+    --new-bg:        #eff6ff;
+    --premium-bg:    #fdf4ff;
+    --urgent-bg:     #fff7ed;
+    --review-bg:     #fffbeb;
+    --section-h:     #0f172a;
+    --divider:       #e2e5ea;
+    --flag-new:      #2563eb;
+    --flag-premium:  #7e22ce;
+    --flag-urgent:   #ea580c;
+    --flag-warn:     #b45309;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 24px 16px 48px;
+}
+
+/* Layout wrapper */
+.report-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+/* ---- Report header ---- */
+.report-header {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+}
+.report-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--section-h);
+    margin-bottom: 8px;
+}
+.report-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 4px 24px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+}
+.report-meta span strong { color: var(--text); }
+.report-meta .sources-failed { color: #b91c1c; }
+
+/* ---- Summary block ---- */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+.summary-tile {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    text-align: center;
+}
+.summary-tile .count { font-size: 28px; font-weight: 700; color: var(--accent); }
+.summary-tile .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ---- Section headers ---- */
+section { margin-bottom: 32px; }
+section > header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--divider);
+}
+section > header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--section-h);
+}
+section > header .section-count {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+}
+.section-note {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-style: italic;
+}
+.empty-section {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+    padding: 12px 0;
+}
+
+/* ---- Role cards ---- */
+article.role-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    position: relative;
+}
+article.role-card.card-new    { border-left: 3px solid var(--flag-new); background: var(--new-bg); }
+article.role-card.card-premium { border-left: 3px solid var(--flag-premium); background: var(--premium-bg); }
+article.role-card.card-urgent  { border-left: 3px solid var(--flag-urgent); background: var(--urgent-bg); }
+article.role-card.card-review  { border-left: 3px solid var(--flag-warn); background: var(--review-bg); }
+article.role-card.card-pipeline { border-left: 3px solid var(--border); }
+
+/* Card title row */
+.card-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+}
+.card-title:hover { color: var(--accent-hover); text-decoration: underline; }
+.card-employer {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+.card-location {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+/* Flag pills (🆕⚡💰⚠️) */
+.flag-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.flag-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+}
+.flag-new     { background: #dbeafe; color: var(--flag-new); }
+.flag-premium { background: #f3e8ff; color: var(--flag-premium); }
+.flag-urgent  { background: #ffedd5; color: var(--flag-urgent); }
+.flag-warn    { background: #fef3c7; color: var(--flag-warn); }
+
+/* Detail row */
+.card-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+.detail-item { display: flex; align-items: center; gap: 5px; }
+.detail-label { color: var(--muted); font-weight: 500; }
+
+/* IR35 badge */
+.ir35-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.ir35-outside  { background: var(--ir35-out-bg); color: var(--ir35-outside); }
+.ir35-inside   { background: var(--ir35-in-bg);  color: var(--ir35-inside); }
+.ir35-umbrella { background: var(--ir35-umb-bg); color: var(--ir35-umbrella); }
+.ir35-none     { background: var(--ir35-none-bg); color: var(--ir35-none); }
+
+/* Rate band tag */
+.rate-band-tag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--tag-text);
+    background: var(--tag-bg);
+    padding: 1px 7px;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+}
+
+/* Summary snippet */
+.card-summary {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 8px 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Source links row */
+.card-source-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+}
+a.view-listing-btn {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+a.view-listing-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+a.source-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+}
+a.source-link:hover { text-decoration: underline; }
+
+/* Soft notes */
+.soft-note {
+    font-size: 12px;
+    color: var(--flag-warn);
+    margin-top: 6px;
+    padding: 4px 8px;
+    background: #fef9c3;
+    border-radius: 4px;
+    border-left: 3px solid #fbbf24;
+}
+
+/* Sanity reasons */
+.sanity-reasons {
+    font-size: 12px;
+    color: var(--flag-warn);
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--review-bg);
+    border-radius: 4px;
+    border-left: 3px solid #fbbf24;
+}
+.sanity-reasons ul { margin-left: 16px; }
+
+/* Region sub-section */
+.region-section { margin-bottom: 24px; }
+.region-heading {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--section-h);
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--divider);
+}
+.seniority-heading {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 12px 0 8px;
+}
+
+/* Data quality box */
+.data-quality-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    font-size: 13px;
+    margin-bottom: 24px;
+}
+.data-quality-box h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--section-h);
+}
+.data-quality-box ul { margin-left: 18px; color: var(--muted); }
+.data-quality-box li { margin-bottom: 4px; }
+.src-ok   { color: #166534; }
+.src-fail { color: #b91c1c; }
+
+/* Footer */
+footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--divider);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.8;
+}
+footer strong { color: var(--text); }
+"""
+
+# ---------------------------------------------------------------------------
+# HTML escape helper
+# ---------------------------------------------------------------------------
+
+def _h(text: str | None) -> str:
+    """HTML-escape a plain-text value; empty string when None."""
+    return html_mod.escape(str(text)) if text is not None else ""
+
+
+def _truncate_plain(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    # Truncate at word boundary.
+    t = text[:max_chars]
+    idx = t.rfind(" ")
+    return (t[:idx] if idx > max_chars // 2 else t) + "…"
+
+
+# ---------------------------------------------------------------------------
+# IR35 badge
+# ---------------------------------------------------------------------------
+
+def _ir35_badge_html(ir35: str | None) -> str:
+    if ir35 == "outside":
+        return '<span class="ir35-badge ir35-outside">Outside IR35</span>'
+    if ir35 == "inside":
+        return '<span class="ir35-badge ir35-inside">Inside IR35</span>'
+    if ir35 == "umbrella":
+        return '<span class="ir35-badge ir35-umbrella">Umbrella</span>'
+    return '<span class="ir35-badge ir35-none">IR35 Not Stated</span>'
+
+
+# ---------------------------------------------------------------------------
+# Flag pills
+# ---------------------------------------------------------------------------
+
+def _flag_pills(listing: NormalizedListing, today: date) -> str:
+    parts: list[str] = []
+    if listing.is_new_listing:
+        parts.append('<span class="flag-pill flag-new">🆕 New</span>')
+    if is_urgent(listing, today):
+        parts.append('<span class="flag-pill flag-urgent">⚡ Urgent Start</span>')
+    if is_premium(listing):
+        parts.append('<span class="flag-pill flag-premium">💰 Premium Rate</span>')
+    if is_sanity_flagged(listing, today):
+        parts.append('<span class="flag-pill flag-warn">⚠️ Review</span>')
+    if not parts:
+        return ""
+    return f'<div class="flag-row">{"".join(parts)}</div>'
+
+
+# ---------------------------------------------------------------------------
+# Source links block
+# ---------------------------------------------------------------------------
+
+def _source_links_html(listing: NormalizedListing) -> str:
+    """Return HTML for source attribution + clickable view-listing buttons."""
+    urls = listing.source_urls or ([listing.source_url] if listing.source_url else [])
+    if not urls:
+        return f'<span class="source-label">Source: {_h(listing.source)}</span>'
+
+    parts: list[str] = []
+    for url in urls:
+        name = _h(_source_name_from_url(url))
+        escaped_url = _h(url)
+        parts.append(
+            f'<span class="source-name">{name}</span>'
+            f'<a class="view-listing-btn" href="{escaped_url}" target="_blank" rel="noopener">View Full Listing</a>'
+        )
+    # If multiple URLs (cross-source dedup), also show individual named links.
+    if len(urls) > 1:
+        named: list[str] = []
+        for url in urls:
+            name = _h(_source_name_from_url(url))
+            escaped_url = _h(url)
+            named.append(f'<a class="source-link" href="{escaped_url}" target="_blank" rel="noopener">{name}</a>')
+        parts.append(" · ".join(named))
+
+    return '<div class="card-source-row">' + " ".join(parts) + "</div>"
+
+
+# ---------------------------------------------------------------------------
+# Card builder (shared across section types)
+# ---------------------------------------------------------------------------
+
+def _role_card(
+    listing: NormalizedListing,
+    today: date,
+    card_class: str = "card-pipeline",
+    show_summary_chars: int = _SUMMARY_COMPACT_CHARS,
+    sanity_reasons: list[str] | None = None,
+) -> str:
+    lines: list[str] = []
+
+    # Title linked to primary source URL.
+    primary_url = (listing.source_urls or [listing.source_url])[0] if (listing.source_urls or listing.source_url) else ""
+    title_escaped = _h(listing.title)
+    if primary_url:
+        title_html = f'<a class="card-title" href="{_h(primary_url)}" target="_blank" rel="noopener">{title_escaped}</a>'
+    else:
+        title_html = f'<span class="card-title">{title_escaped}</span>'
+
+    employer = _h(listing.employer or listing.agency or "Unknown Employer")
+    location = _h(listing.location or "Location TBC")
+
+    rate_band = _h(rate_context(listing))
+    rate_display = _h(_rate_str(listing))
+    ir35_html = _ir35_badge_html(listing.ir35_status)
+    duration = _h(_duration_str(listing.duration_weeks))
+    start = _h(_start_str_safe(listing.start_date, today))
+    flags = _flag_pills(listing, today)
+
+    lines.append(f'<article class="role-card {card_class}">')
+
+    if flags:
+        lines.append(flags)
+
+    lines.append(f'<div class="card-title-row">{title_html}</div>')
+    lines.append(f'<div class="card-employer">{employer}</div>')
+    lines.append(f'<div class="card-location">📍 {location}</div>')
+
+    # Details row.
+    lines.append('<div class="card-details">')
+    lines.append(f'  <span class="detail-item"><span class="detail-label">Rate:</span> {rate_display} <span class="rate-band-tag">{rate_band}</span></span>')
+    lines.append(f'  <span class="detail-item"><span class="detail-label">IR35:</span> {ir35_html}</span>')
+    lines.append(f'  <span class="detail-item"><span class="detail-label">Duration:</span> {duration}</span>')
+    lines.append(f'  <span class="detail-item"><span class="detail-label">Start:</span> {start}</span>')
+    lines.append('</div>')
+
+    # Summary snippet.
+    if listing.description_clean:
+        snippet = _h(_truncate_plain(listing.description_clean, show_summary_chars))
+        lines.append(f'<p class="card-summary">{snippet}</p>')
+
+    # Soft notes.
+    soft = get_soft_notes(listing)
+    if soft:
+        lines.append(f'<div class="soft-note">💡 {_h("; ".join(soft))}</div>')
+
+    # Sanity reasons (review queue).
+    if sanity_reasons:
+        reason_items = "".join(f"<li>{_h(r)}</li>" for r in sanity_reasons)
+        lines.append(f'<div class="sanity-reasons"><strong>⚠️ Flagged:</strong><ul>{reason_items}</ul></div>')
+
+    # Source links.
+    lines.append(_source_links_html(listing))
+
+    lines.append("</article>")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Section renderers
+# ---------------------------------------------------------------------------
+
+def _render_html_header(
+    run_metadata: RunMetadata,
+    clean_listings: list[NormalizedListing],
+    flagged_listings: list[NormalizedListing],
+) -> str:
+    ds = run_metadata.date_range_start
+    de = run_metadata.date_range_end
+    week_label = f"{ds.day} {ds.strftime('%B')} – {de.day} {de.strftime('%B')} {de.year}"
+
+    ts = run_metadata.run_finished_at
+    ts_label = f"{ts.strftime('%A')}, {ts.day} {ts.strftime('%B')} {ts.year} at {ts.strftime('%H:%M')} UTC"
+
+    succeeded = ", ".join(run_metadata.sources_succeeded) or "none"
+    premium_count = sum(1 for l in clean_listings if is_premium(l))
+
+    failed_html = ""
+    if run_metadata.sources_failed:
+        failed_parts = [f"{_h(s)}: {_h(reason)}" for s, reason in run_metadata.sources_failed.items()]
+        failed_html = f'<span class="sources-failed">❌ Failed: {", ".join(failed_parts)}</span>'
+
+    header = f"""<header class="report-header">
+  <h1>Weekly Mechanical Engineering PM Contract Report</h1>
+  <div class="report-meta">
+    <span><strong>Week of:</strong> {_h(week_label)}</span>
+    <span><strong>Generated:</strong> {_h(ts_label)}</span>
+    <span><strong>Sources:</strong> {_h(succeeded)}</span>
+    <span><strong>Records:</strong> {run_metadata.total_after_dedup} unique (from {run_metadata.total_raw} raw)</span>
+    {failed_html}
+  </div>
+</header>"""
+
+    # Summary tiles.
+    tiles = [
+        (str(run_metadata.total_new), "New This Week"),
+        (str(run_metadata.total_urgent), "Urgent Starts ≤14 days"),
+        (str(premium_count), "Premium Rate (≥£700 outside)"),
+        (str(run_metadata.total_sanity_flagged), "Under Review"),
+        (str(run_metadata.total_after_dedup), "Total in Pipeline"),
+    ]
+    tile_html = "\n".join(
+        f'<div class="summary-tile"><div class="count">{_h(c)}</div><div class="label">{_h(l)}</div></div>'
+        for c, l in tiles
+    )
+    summary = f'<div class="summary-grid">\n{tile_html}\n</div>'
+
+    return header + "\n" + summary
+
+
+def _render_html_new_section(new_listings: list[NormalizedListing], today: date) -> str:
+    count = len(new_listings)
+    heading = f"🆕 New This Week"
+    body: list[str] = []
+    if not new_listings:
+        body.append('<p class="empty-section">No new listings this run.</p>')
+    else:
+        sorted_new = sorted(
+            new_listings,
+            key=lambda l: (l.start_date is None, l.start_date or date.max, -(effective_day_rate(l) or 0)),
+        )
+        for listing in sorted_new:
+            body.append(_role_card(listing, today, "card-new", _SUMMARY_MAX_CHARS))
+
+    return f"""<section id="new-listings">
+  <header>
+    <h2>{heading}</h2>
+    <span class="section-count">{count} role{"s" if count != 1 else ""}</span>
+  </header>
+  {"".join(body)}
+</section>"""
+
+
+def _render_html_premium_section(premium_listings: list[NormalizedListing], today: date) -> str:
+    if not premium_listings:
+        return ""
+    count = len(premium_listings)
+    sorted_p = sorted(
+        premium_listings,
+        key=lambda l: -(effective_day_rate(l) or 0),
+    )
+    body = "".join(_role_card(l, today, "card-premium", _SUMMARY_MAX_CHARS) for l in sorted_p)
+    return f"""<section id="premium-rate">
+  <header>
+    <h2>💰 Premium Rate</h2>
+    <span class="section-count">{count} role{"s" if count != 1 else ""} ≥£700 outside IR35</span>
+  </header>
+  <p class="section-note">Top-quartile day rates for UK mechanical engineering PM contracts.</p>
+  {body}
+</section>"""
+
+
+def _render_html_urgent_section(urgent_listings: list[NormalizedListing], today: date) -> str:
+    if not urgent_listings:
+        return ""
+    count = len(urgent_listings)
+    cutoff_dt = today + timedelta(days=14)
+    cutoff_label = f"{cutoff_dt.day} {cutoff_dt.strftime('%B')}"
+    sorted_u = sorted(urgent_listings, key=lambda l: (l.start_date is None, l.start_date or date.max))
+    body = "".join(_role_card(l, today, "card-urgent", _SUMMARY_COMPACT_CHARS) for l in sorted_u)
+    return f"""<section id="urgent-starts">
+  <header>
+    <h2>⚡ Urgent Starts</h2>
+    <span class="section-count">Starting by {_h(cutoff_label)} — {count} role{"s" if count != 1 else ""}</span>
+  </header>
+  {body}
+</section>"""
+
+
+def _render_html_pipeline_section(by_region: dict[str, list[NormalizedListing]], today: date) -> str:
+    total = sum(len(v) for v in by_region.values())
+    regions_html: list[str] = []
+
+    for region in REGION_ORDER:
+        region_listings = by_region.get(region)
+        if not region_listings:
+            continue
+
+        region_label = _REGION_FLAGS.get(region, f"🇬🇧 {region}")
+        tiers: dict[str, list[NormalizedListing]] = {"senior": [], "mid": [], "junior": []}
+        for listing in region_listings:
+            tiers[_classify_seniority(listing)].append(listing)
+
+        tiers_html: list[str] = []
+        for tier_key in ("senior", "mid", "junior"):
+            tier_listings = tiers[tier_key]
+            if not tier_listings:
+                continue
+            tier_listings.sort(
+                key=lambda l: (l.start_date is None, l.start_date or date.max, -(effective_day_rate(l) or 0))
+            )
+            cards = "".join(_role_card(l, today, "card-pipeline", _SUMMARY_COMPACT_CHARS) for l in tier_listings)
+            tiers_html.append(
+                f'<h4 class="seniority-heading">{_h(_SENIORITY_LABELS[tier_key])}</h4>'
+                + cards
+            )
+
+        regions_html.append(
+            f'<div class="region-section">'
+            f'<h3 class="region-heading">{_h(region_label)}'
+            f' <small>({len(region_listings)} role{"s" if len(region_listings) != 1 else ""})</small></h3>'
+            + "".join(tiers_html)
+            + "</div>"
+        )
+
+    return f"""<section id="pipeline">
+  <header>
+    <h2>All Current Roles — By Region</h2>
+    <span class="section-count">{total} active role{"s" if total != 1 else ""} across UK</span>
+  </header>
+  <p class="section-note">Listed by region, then seniority (descending), then start date (ascending).</p>
+  {"".join(regions_html)}
+</section>"""
+
+
+def _render_html_review_queue(flagged_listings: list[NormalizedListing], today: date) -> str:
+    if not flagged_listings:
+        return ""
+    count = len(flagged_listings)
+    body_parts: list[str] = []
+    for listing in flagged_listings:
+        reasons = get_sanity_reasons(listing, today)
+        body_parts.append(_role_card(listing, today, "card-review", _SUMMARY_COMPACT_CHARS, sanity_reasons=reasons))
+
+    return f"""<section id="review-queue">
+  <header>
+    <h2>⚠️ Review Queue</h2>
+    <span class="section-count">{count} role{"s" if count != 1 else ""}</span>
+  </header>
+  <p class="section-note">
+    These listings carry a geographic-uncertainty flag and require manual review.
+    Rate-missing and unrecognised-location roles appear in the main section above with a soft note —
+    consistent with UK contract market norms.
+  </p>
+  {"".join(body_parts)}
+</section>"""
+
+
+def _render_html_data_quality(run_metadata: RunMetadata, num_flagged: int) -> str:
+    source_items: list[str] = []
+    for src in run_metadata.sources_succeeded:
+        source_items.append(f'<li class="src-ok">✅ {_h(src)}</li>')
+    for src, reason in run_metadata.sources_failed.items():
+        source_items.append(f'<li class="src-fail">❌ {_h(src)}: {_h(reason)}</li>')
+
+    clean_run = (
+        '<p>✅ No sanity flags this run — all records passed automated checks.</p>'
+        if num_flagged == 0
+        else ""
+    )
+    de = run_metadata.date_range_end
+    freshness = f"{de.day} {de.strftime('%B')} {de.year}"
+    pipeline_str = (
+        f"{run_metadata.total_raw} raw → {run_metadata.total_after_filter} filtered"
+        f" → {run_metadata.total_after_dedup} deduplicated"
+    )
+
+    return f"""<div class="data-quality-box">
+  <h3>🔍 Data Quality &amp; Notes</h3>
+  {clean_run}
+  <p><strong>Source coverage:</strong></p>
+  <ul>{"".join(source_items)}</ul>
+  <p style="margin-top:8px"><strong>Data freshness:</strong> All listings verified active as of {_h(freshness)}.</p>
+  <p><strong>Pipeline:</strong> {_h(pipeline_str)}</p>
+</div>"""
+
+
+def _render_html_footer(run_metadata: RunMetadata, total: int, generated_at: datetime) -> str:
+    next_report = run_metadata.date_range_end + timedelta(days=7)
+    next_label = f"{next_report.day} {next_report.strftime('%B')} {next_report.year}"
+    ts_str = f"{generated_at.day} {generated_at.strftime('%B')} {generated_at.year} at {generated_at.strftime('%H:%M')} UTC"
+
+    return f"""<footer>
+  <p>
+    <strong>Next Report:</strong> Friday, {_h(next_label)}&emsp;|&emsp;
+    <strong>Total listings:</strong> {total}&emsp;|&emsp;
+    Generated {_h(ts_str)}
+  </p>
+  <p style="margin-top:6px">Generated by Mech-PM-Finder &mdash; Report format &amp; domain notes by Polly (Reporting &amp; Domain).</p>
+</footer>"""
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+def render_weekly_html(
+    listings: list[NormalizedListing],
+    run_metadata: RunMetadata,
+    output_path: Path,
+) -> Path:
+    """Render a weekly HTML report and write it to *output_path*.
+
+    Produces a single self-contained HTML file (CSS embedded, no external assets)
+    suitable for opening locally in a browser.  All links are clickable.
+
+    Args:
+        listings:      All NormalizedListing objects for this run, including
+                       sanity-flagged ones.  The renderer partitions them internally.
+        run_metadata:  Pipeline provenance and count metrics.
+        output_path:   Destination ``.html`` file.  Parent dirs are created if absent.
+
+    Returns:
+        Resolved absolute path of the written file.
+    """
+    today = run_metadata.date_range_end
+    generated_at = run_metadata.run_finished_at
+
+    # Partition — mirrors render.py logic exactly.
+    flagged = [l for l in listings if is_geo_flagged(l)]
+    clean = [l for l in listings if not is_geo_flagged(l)]
+
+    new_listings = [l for l in clean if l.is_new_listing]
+    urgent_listings = [l for l in clean if is_urgent(l, today)]
+    premium_listings = [l for l in clean if is_premium(l)]
+    by_region = group_by_region(clean)
+
+    # Build document body.
+    body_parts: list[str] = [
+        _render_html_header(run_metadata, clean, flagged),
+        _render_html_new_section(new_listings, today),
+        _render_html_premium_section(premium_listings, today),
+        _render_html_urgent_section(urgent_listings, today),
+        _render_html_pipeline_section(by_region, today),
+        _render_html_review_queue(flagged, today),
+        _render_html_data_quality(run_metadata, len(flagged)),
+        _render_html_footer(run_metadata, len(clean), generated_at),
+    ]
+
+    body_html = "\n".join(p for p in body_parts if p)
+
+    document = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mech PM Finder — {_h(str(run_metadata.date_range_end))}</title>
+  <style>
+{_CSS}
+  </style>
+</head>
+<body>
+<div class="report-wrap">
+{body_html}
+</div>
+</body>
+</html>"""
+
+    output_path = Path(output_path).resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(document, encoding="utf-8")
+
+    return output_path

@@ -18,6 +18,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from mechpm.reporter.grouping import is_geo_flagged, is_sanity_flagged, is_urgent
+from mechpm.reporter.html_render import render_weekly_html
 from mechpm.reporter.models import RunMetadata
 from mechpm.reporter.render import render_weekly
 from mechpm.storage.sqlite import Repo
@@ -34,7 +35,11 @@ def generate_report(
     manifest: dict | None,
     reports_dir: Path = _DEFAULT_REPORTS_DIR,
 ) -> Path:
-    """Generate a Markdown report from SQLite data and run manifest.
+    """Generate Markdown and HTML reports from SQLite data and run manifest.
+
+    Both formats are written every run:
+      - ``reports/{date_str}.md``   — diff-friendly text artefact
+      - ``reports/{date_str}.html`` — human-facing browseable view with clickable links
 
     Args:
         repo:         Open SQLite Repo instance.
@@ -42,10 +47,10 @@ def generate_report(
         since_date:   Report window start (inclusive); listings with last_seen_at
                       >= since_date are included.
         manifest:     Parsed run_manifest.json, or None when unavailable.
-        reports_dir:  Directory to write the .md file.
+        reports_dir:  Directory to write the report files.
 
     Returns:
-        The resolved path of the written report file.
+        The resolved path of the written Markdown report file.
     """
     today = date.fromisoformat(date_str)
 
@@ -86,4 +91,10 @@ def generate_report(
     )
 
     output_path = Path(reports_dir) / f"{date_str}.md"
-    return render_weekly(listings, run_metadata, output_path)
+    md_path = render_weekly(listings, run_metadata, output_path)
+
+    html_output_path = Path(reports_dir) / f"{date_str}.html"
+    render_weekly_html(listings, run_metadata, html_output_path)
+    logger.info("HTML report written: %s", html_output_path)
+
+    return md_path
