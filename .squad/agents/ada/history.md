@@ -367,3 +367,73 @@ See `.squad/decisions/inbox/ada-ejl-t4-gate-root-cause.md` for full write-up.
 - Reed also benefits from the PM_TITLE_RE expansion (+3 Reed listings for planning roles).
 - Never embed "United Kingdom" in EJL keyword text — the site's FTS only returns listings
   containing that exact phrase in job body copy, which is rare.
+
+---
+
+## v0.2 Precision Fixes — Japan Leak + Site Manager False Positives (2026-06-15)
+
+**Requested by:** Steve (steve-ms)  
+**Pipeline state entering this session:** 46 stored.  
+**Goal:** Two surgical precision fixes before v0.2 is declared done.
+
+### Issue 1 — Japan location leak (passes_uk Case 2 defense-in-depth)
+
+#### Root cause
+`detect_country("Tokyo, Japan")` correctly returns "JP" — Japan IS in `_NON_UK_MAP` (added in the EJL T4 session). The real vulnerability was a dedup path: if a listing was originally stored when Japan was NOT yet in `_NON_UK_MAP`, the record has `country='GB'` on disk. Subsequent runs skip it via dedup (already-stored listings are never re-filtered). `passes_uk` Case 2 (`country == "GB" AND location.strip()`) returned True without ever re-scanning the location text — it trusted the stored country code blindly.
+
+Even without dedup, if a future country mapping is added and an adapter incorrectly sets `country="GB"` for a non-UK listing, Case 2 would pass it silently.
+
+#### Fix
+`passes_uk` Case 2 now scans `listing.location` against `_NON_UK_MAP` before returning True. If any non-UK pattern matches in the location text, the listing is hard-rejected with no flag. This is defense-in-depth: it operates independently of the country field value.
+
+Implementation detail: `_NON_UK_MAP` is already imported in `filters.py`; the existing pattern compilation loop was extended by one call at Case 2 evaluation time.
+
+### Issue 2 — Site Manager precision (construction sector description gap)
+
+#### Root cause
+`passes_mechanical` for `_MECHANICAL_SECTORS` only checked the title for disqualifiers, then returned True if no disqualifier found. Descriptions were never scanned for sector-supervision signals. In the construction sector, "Site Manager" can mean a genuine mechanical PM (water treatment, M&E installation) or a labour/site-foreman supervisor (scaffolding, fit-out, CIS). The filter had no way to distinguish them when the title alone was ambiguous.
+
+Two concrete false positives found in the 46-stored dataset:
+1. **Reed "Site Manager" (Deeside)** — lab fit-out; SMSTS and First Aid certifications cited; zero MECH_KEYWORDS in visible description.
+2. **Reed "Site Manager - Construction" (Swindon)** — "hands on role overseeing day to day site activities"; CIS rate; zero non-"construction" MECH_KEYWORDS.
+
+#### Fix
+1. Added three new entries to `DISQUALIFY_PHRASES`: `"smsts"`, `"hands on role"`, `"first aider"`. These are reliable site-foreman supervision signals.
+2. Added a description-scan branch to `passes_mechanical` for construction-sector listings: when a disqualifier phrase is found in the description AND the title does NOT already have a disqualifier, check if the title carries a specific mech keyword (excluding "construction" itself as circular evidence for this sector). If no specific mech keyword in title → reject.
+
+Guard: `if has_desc_disqualifier and not has_disqualifier:` — the description branch only fires when the title is CLEAN (no disqualifier). This avoids the `neg_16_quantity_surveyor` regression where "quantity surveyor" was in both title and description; the title already handled the disqualifier so the description branch must not fire.
+
+#### Listings disposition
+| Title | Location | Decision | Signal |
+|-------|----------|----------|--------|
+| Site Manager | Deeside | **DROP** | SMSTS + First Aid in desc, no mech keyword in title |
+| Site Manager - Construction | Swindon | **DROP** | "hands on role" in desc, only "construction" in title (excluded as circular) |
+| Mechanical Site Manager | Windsor | **KEEP** | "mechanical" in title overrides desc disqualifier |
+| Site Manager (chemical plant) | Cambridge | **KEEP** | No desc disqualifier — passes cleanly |
+| Site Manager | Keith | **KEEP** | `sector=rail` (railwaypeople source default); rail sector not in construction branch |
+| Construction Manager | Port Talbot | **KEEP** | No desc disqualifier (no smsts/hands-on-role in truncated description) |
+| Site Manager | Gloucester | **KEEP** | `sector=generalist`; construction branch not triggered |
+| Site Manager | Windsor (M&E) | **KEEP** | `sector=generalist`; "mechanical" in description hits MECH_KEYWORDS |
+
+#### Key constraint: "construction" as circular evidence
+When the construction-sector description disqualifier fires, the title-override check excludes "construction" from the MECH_KEYWORDS set. Without this, "Site Manager - Construction" would override (title contains "construction" = MECH_KEYWORDS hit) even though that's just the sector label, not a domain qualifier.
+
+### Test regression caught and fixed
+`neg_16_quantity_surveyor`: title = "Senior Quantity Surveyor — Commercial Construction (Contract)" has "quantity surveyor" in DISQUALIFY_PHRASES. Description also mentions "quantity surveyor" → the new description-scan branch was firing. Fix: guard `if has_desc_disqualifier and not has_disqualifier:` — description branch only fires when title is clean.
+
+### Results
+- Test suite: **333 pass, 25 skip** (326 baseline + 7 new regression tests). 0 failures.
+- Pipeline: **44 stored** (down from 46 — exactly the 2 false positives dropped). ≥40 threshold met.
+- Commit: `fix(filter): Japan location leak + Site Manager precision fixes` (f14a30f)
+
+### New regression tests added (7)
+1. `test_passes_uk_tokyo_japan_location_stale_country_rejected` — Tokyo+Japan in location with stale country=GB → False
+2. `test_passes_uk_tokyo_only_stale_country_rejected` — "Tokyo" alone in location with country=GB → False
+3. `test_passes_uk_manchester_uk_still_passes_after_location_scan` — Manchester UK → True (regression guard)
+4. `test_passes_mechanical_site_manager_smsts_in_desc_dropped` — construction sector, "Site Manager", SMSTS in desc → False
+5. `test_passes_mechanical_site_manager_hands_on_role_in_desc_dropped` — "Site Manager - Construction", "hands on role" → False
+6. `test_passes_mechanical_mechanical_site_manager_smsts_in_desc_kept` — "Mechanical Site Manager" with SMSTS → True
+7. `test_passes_mechanical_site_manager_chemical_plant_desc_kept` — "Site Manager" with chemical plant in desc → True
+
+### Decision drop
+`.squad/decisions/inbox/ada-site-manager-precision.md` — documents smsts/hands-on-role disqualifier logic and the "construction as circular evidence" constraint for team review.
