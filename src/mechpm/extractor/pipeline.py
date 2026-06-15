@@ -23,6 +23,7 @@ from mechpm.extractor import structured as tier1
 from mechpm.extractor import regex_fields as tier2
 from mechpm.extractor import sector as sector_mod
 from mechpm.extractor import llm_fallback as tier3
+from mechpm.extractor.rate_parser import parse_rate as _parse_rate_full
 
 logger = logging.getLogger("mechpm.extractor.pipeline")
 
@@ -55,12 +56,25 @@ def extract(raw: RawListing, llm_client: object | None = None) -> NormalizedList
     # ------------------------------------------------------------------
     description: str = fields.get("description_raw") or ""
 
-    # Rate
-    rate = tier2.parse_rate(raw.salary_raw, description)
-    fields.update(rate)
+    # Rate + IR35 — use rate_parser (supports bare-number rates and umbrella IR35).
+    # Pass description_clean when available: HTML has already been stripped by
+    # extract_structured, giving better regex accuracy over description_raw.
+    description_for_rate: str = fields.get("description_clean") or description
+    rate_info = _parse_rate_full(
+        description_for_rate,
+        salary_raw=raw.salary_raw,
+        metadata=raw.metadata,
+    )
+    fields["day_rate_min"] = rate_info.day_rate_min
+    fields["day_rate_max"] = rate_info.day_rate_max
+    if rate_info.rate_currency is not None:
+        fields["rate_currency"] = rate_info.rate_currency
+    fields["rate_period"] = rate_info.rate_period
 
-    # IR35
-    ir35_val = tier2.parse_ir35(description)
+    # IR35: rate_parser detects inside/outside/umbrella from description;
+    # tier2.parse_ir35 is used as a fallback (handles explicit "Inside/Outside IR35"
+    # phrases that may be in description_raw but absent from description_clean).
+    ir35_val = rate_info.ir35_status or tier2.parse_ir35(description)
     fields["ir35_status"] = ir35_val  # None = "not_stated" (Polly-compat)
 
     # Duration — prefer metadata["duration_raw"] (set by adapter) over regex
