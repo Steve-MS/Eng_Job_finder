@@ -1,0 +1,73 @@
+name: Weekly Report
+
+on:
+  schedule:
+    # Every Friday at 16:00 UTC (= 17:00 BST during British Summer Time)
+    - cron: "0 16 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    env:
+      REED_API_KEY: ${{ secrets.REED_API_KEY }}
+      ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+      ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+      OPENAI_API_KEY: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run tests (gate)
+        run: python -m pytest tests/ -x -q --tb=short
+        continue-on-error: false
+
+      - name: Run pipeline
+        run: python -m mechpm.cli run-all
+        continue-on-error: true
+
+      - name: Generate index page
+        run: python -m mechpm.reporter.index_render
+
+      - name: Commit reports and database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/ data/mechpm.sqlite
+          git diff --cached --quiet && echo "No changes to commit" || \
+            git commit -m "chore: weekly report $(date -u +%Y-%m-%d)" && git push
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports/
+
+      - name: Deploy to Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
