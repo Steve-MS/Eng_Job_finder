@@ -302,6 +302,14 @@ DISQUALIFY_PHRASES: list[str] = [
     "biotech",
     "medical device",          # debatable — some are mech-eng; reject for now
     "clinical trial",
+
+    # --- NEW (v0.2 Site Manager precision fix) ---
+    # Site-supervisor signals that appear in description (not title) of labour
+    # roles masquerading as project management.  Only consequential in the
+    # construction-sector description check (passes_mechanical).
+    "smsts",                   # Site Management Safety Training Scheme cert = site foreman
+    "hands on role",           # "This is a hands on role overseeing day to day…" = labour supervisor
+    "first aider",             # first-aid cert as a *required* qualification = site foreman signal
 ]
 
 # Pre-compiled word-boundary patterns for DISQUALIFY_PHRASES.
@@ -362,8 +370,15 @@ def passes_uk(listing: NormalizedListing) -> bool:
     if listing.country != "GB":
         return False
 
-    # Case 2: country is GB and location was provided → confirmed UK
+    # Case 2: country is GB and location was provided → check location text is UK.
+    # Defence-in-depth: scan location text even when country is already "GB".
+    # Guards against stale country codes stored before a _NON_UK_MAP entry was added,
+    # or any other code path that might set country="GB" for a non-UK location_raw.
+    # example: location="Tokyo, Japan", country="GB" → hard-reject, no flag
     if listing.location.strip():
+        for pattern, _ in _NON_UK_MAP:
+            if pattern.search(listing.location):
+                return False  # non-UK geo signal in location text → hard-reject
         return True
 
     # Case 3: country defaulted to GB because location was absent.
@@ -407,19 +422,52 @@ def passes_mechanical(listing: NormalizedListing) -> bool:
 
     For 'generalist' sector: requires mech_score ≥ 1 AND mech_score > disqualify_score,
     with title hits weighted more heavily than description hits.
+
+    Construction-sector refinement (v0.2 Site Manager fix):
+    'construction' is assigned by keyword match (not a source-default vertical board)
+    so it can capture generic site-supervision roles.  When the description contains
+    site-supervisor disqualifier phrases (smsts, hands on role, first aider), the
+    listing must also carry a *specific* mechanical keyword in the title — the word
+    'construction' alone is excluded because it is circular evidence for this sector.
     """
     if listing.sector in _MECHANICAL_SECTORS:
         title_lower = (listing.title or "").lower()
-        # Disqualifier substring check. When a disqualifying phrase fires, allow
-        # through only if a mechanical keyword is *also* present in the title —
+        has_disqualifier = any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)
+
+        # Construction sector: also scan description for site-supervisor disqualifiers.
+        # Rail / energy / aerospace etc. are source-default verticals and bypass this.
+        if listing.sector == "construction":
+            desc_lower = (listing.description_raw or "").lower()
+            has_desc_disqualifier = any(pat.search(desc_lower) for pat in _DISQUALIFY_RES)
+            # Only act on the description disqualifier when the TITLE itself did
+            # NOT fire a disqualifier.  If the title already fired (e.g. "Quantity
+            # Surveyor — Commercial Construction"), fall through to the existing
+            # title-override check which uses the full MECH_KEYWORDS set.
+            if has_desc_disqualifier and not has_disqualifier:
+                # Description fired a site-supervisor signal (smsts, hands on role,
+                # first aider) but the title looks clean.
+                # Allow through only when title has a *specific* mech keyword beyond
+                # 'construction' (circular for this sector).
+                # example: "Mechanical Site Manager" + smsts in desc → title has
+                #          "mechanical" → KEEP
+                # example: "Site Manager" + smsts in desc → no specific mech → DROP
+                # example: "Site Manager - Construction" + hands-on-role → title only
+                #          has "construction" (excluded) → DROP
+                _mech_not_construction = [kw for kw in MECH_KEYWORDS if kw != "construction"]
+                return any(
+                    re.search(r"\b" + re.escape(kw) + r"\b", title_lower)
+                    for kw in _mech_not_construction
+                )
+
+        if not has_disqualifier:
+            return True
+        # Disqualifier matched in title: allow through only when a mechanical keyword
+        # is *also* present in the title —
         # this handles multi-discipline titles like "Mechanical & Civil Engineering"
         # where mechanical content is the primary scope.
         # example: "Civil Engineering" fires disqualifier, no mech keyword → rejected
         # example: "Mechanical & Civil Engineering" fires disqualifier, "mechanical"
         #          present → passes (mech content overrides the disqualifier)
-        has_disqualifier = any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)
-        if not has_disqualifier:
-            return True
         return any(
             re.search(r"\b" + re.escape(kw) + r"\b", title_lower)
             for kw in MECH_KEYWORDS

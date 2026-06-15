@@ -412,3 +412,181 @@ def test_detect_country_egypt_from_location():
     assert detect_country("Alexandria, Egypt") == "EG"
     assert detect_country("Cairo") == "EG"
 
+
+# ---------------------------------------------------------------------------
+# Regression tests: v0.2 precision fixes (2026-06-15)
+# ---------------------------------------------------------------------------
+
+# --- Issue 1: Japan location leak ---
+# Root cause: passes_uk Case 2 trusted country="GB" + non-empty location without
+# re-scanning the location text against _NON_UK_MAP.  Scenario: _NON_UK_MAP entry
+# added after first ingestion → stored record has country="GB", location="Tokyo, Japan"
+# → old code passed Case 2; new code scans location text and hard-rejects.
+
+@_SKIP
+def test_passes_uk_tokyo_japan_location_stale_country_rejected():
+    """Tokyo Japan in location must be hard-rejected even when country is stale 'GB'.
+
+    This guards the scenario where a listing was stored with country='GB' (e.g.
+    before 'japan' was added to _NON_UK_MAP), and the filter must still catch it
+    via location-text scanning in Case 2.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Mechanical Project Manager",
+        location="Tokyo, Japan",
+        country="GB",   # stale / incorrect country code
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" not in listing.sanity_flags
+
+
+@_SKIP
+def test_passes_uk_tokyo_only_stale_country_rejected():
+    """'Tokyo' alone in location is enough to hard-reject when country is stale 'GB'."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Project Manager",
+        location="Tokyo",
+        country="GB",
+        contract_type="contract",
+    )
+    assert passes_uk(listing) is False
+
+
+@_SKIP
+def test_passes_uk_manchester_uk_still_passes_after_location_scan():
+    """Clear UK location still passes the new location-text scan (regression guard)."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Mechanical Project Manager",
+        location="Manchester, UK",
+        country="GB",
+        contract_type="contract",
+    )
+    assert passes_uk(listing) is True
+
+
+# --- Issue 2: Site Manager precision ---
+# Root cause: passes_mechanical for construction sector never scanned descriptions
+# for site-supervisor disqualifiers (smsts, hands on role, first aider).
+# Bare "Site Manager" with these signals in the description = labour supervisor.
+
+@_SKIP
+def test_passes_mechanical_site_manager_smsts_in_desc_dropped():
+    """'Site Manager' with 'smsts' in description → fails mechanical filter.
+
+    SMSTS (Site Management Safety Training Scheme) cited as a required
+    certification is a reliable site-foreman signal when the title has no
+    mechanical domain qualifier.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Site Manager",
+        location="Deeside",
+        country="GB",
+        contract_type="contract",
+        sector="construction",
+        description_raw=(
+            "Multi-Skilled Site Manager (6-Week Contract). "
+            "Required Certifications: SMSTS and First Aid. "
+            "Oversee a fast-paced refurbishment and fit-out project "
+            "within a live laboratory environment."
+        ),
+    )
+    assert passes_mechanical(listing) is False
+
+
+@_SKIP
+def test_passes_mechanical_site_manager_hands_on_role_in_desc_dropped():
+    """'Site Manager - Construction' with 'hands on role' in description → fails.
+
+    'Hands on role overseeing day to day site activities' is labour-supervisor
+    language; no specific mech keyword in title beyond 'construction' (excluded
+    as circular evidence for this sector).
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Site Manager - Construction",
+        location="Swindon",
+        country="GB",
+        contract_type="contract",
+        sector="construction",
+        description_raw=(
+            "Site Manager - Construction. Rate: 30-33 per hour CIS. "
+            "This is a hands on role overseeing day to day site activities, "
+            "coordinating contractors, ensuring health and safety standards."
+        ),
+    )
+    assert passes_mechanical(listing) is False
+
+
+@_SKIP
+def test_passes_mechanical_mechanical_site_manager_smsts_in_desc_kept():
+    """'Mechanical Site Manager' with 'smsts' in desc still passes.
+
+    Title carries 'mechanical' (specific mech keyword, not 'construction'),
+    which overrides the description-level disqualifier.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Mechanical Site Manager",
+        location="Windsor",
+        country="GB",
+        contract_type="contract",
+        sector="construction",
+        description_raw=(
+            "Mechanical Site Manager — water treatment plant upgrade. "
+            "Installation and delivery of mechanical pumping stations. "
+            "SMSTS desirable."
+        ),
+    )
+    assert passes_mechanical(listing) is True
+
+
+@_SKIP
+def test_passes_mechanical_site_manager_chemical_plant_desc_kept():
+    """Bare 'Site Manager' with 'chemical plant' in description still passes.
+
+    'chemical plant' is a strong MECH_KEYWORDS hit in the description; the
+    description-level disqualifier (smsts / hands-on-role / first-aider) is
+    absent, so the listing passes through unchanged.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical
+
+    listing = NormalizedListing(
+        source="adzuna",
+        title="Site Manager",
+        location="Cambridge, Cambridgeshire",
+        country="GB",
+        contract_type="contract",
+        sector="process",
+        description_raw=(
+            "Currently seeking an experienced Site Manager to support delivery "
+            "of a major automation project on a brownfield chemical plant. "
+            "Installation, testing, and commissioning phases."
+        ),
+    )
+    assert passes_mechanical(listing) is True
+
