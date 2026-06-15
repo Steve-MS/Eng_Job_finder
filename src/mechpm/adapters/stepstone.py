@@ -13,16 +13,20 @@ Robots.txt compliance
   Crawl-delay: 3 s enforced between successive page fetches (config.toml).
   Page cap  : 5 pages per run (MVP politeness limit; well within robots allowance).
 
-DOM selectors (StepStone platform, 2025-era)
----------------------------------------------
+DOM selectors (StepStone platform, calibrated 2026-06-15)
+----------------------------------------------------------
   Card root  : article[data-at="job-item"]
   Title/link : a[data-at="job-item-title"]
   Company    : [data-at="job-item-company-name"]
   Location   : [data-at="job-item-location"]
-  Salary     : [data-at="job-item-salary"]
-  Contract   : [data-at="job-item-employment-type"]
-  Date       : [data-at="job-item-date"]  OR  time[datetime]
-  Snippet    : [data-at="job-item-description"]
+  Salary     : [data-at="job-item-salary-info"]   ← updated from "job-item-salary"
+  Date       : [data-at="job-item-timeago"] > time  ← updated from "job-item-date"
+  Contract   : not rendered in search cards — defaults to "contract"
+  Snippet    : not rendered in search cards — left as None
+
+  StepStone pages use Emotion CSS-in-JS: every element carries a sibling
+  ``<style>`` block.  ``_STYLE_RE`` strips these before the HTML is parsed
+  so that ``.text()`` calls on card nodes return clean content only.
 
   All selectors are attempted with graceful fallbacks.  If the primary
   selector returns zero results a WARNING is logged so Arthur's
@@ -33,6 +37,13 @@ Job-ID extraction
   Primary  : regex ``job(\\d+)`` from the listing URL suffix.
   Fallback : ``data-job-id`` / ``data-id`` card attributes.
   Last resort: raw URL used as opaque ID (avoids silently dropping listings).
+
+Search URL (confirmed 2026-06-15)
+----------------------------------
+  Totaljobs : https://www.totaljobs.com/jobs/project-manager/in-uk?contract=true
+  CWJobs    : https://www.cwjobs.co.uk/jobs/project-manager/in-uk?contract=true
+  Both return 200 with 25 job cards per page.  The old
+  ``/jobs/project-manager/engineering-jobs`` path returns HTTP 500.
 """
 from __future__ import annotations
 
@@ -51,6 +62,10 @@ logger = logging.getLogger("mechpm.adapter.stepstone")
 
 _REQUEST_TIMEOUT = 30.0
 _MAX_PAGES = 5  # robots-courtesy cap; both sites allow /jobs/?page=N
+
+# Strip Emotion CSS-in-JS <style> blocks embedded inside every rendered element.
+# selectolax's .text() includes the CSS text, which pollutes title/employer fields.
+_STYLE_RE = re.compile(r"<style[^>]*>.*?</style>", re.DOTALL)
 
 _BROWSER_HEADERS: dict[str, str] = {
     "User-Agent": (
@@ -237,8 +252,13 @@ class StepStoneAdapter(SourceAdapter):
             return []
 
     def _parse_page(self, html: str, page_num: int) -> list[RawListing]:
-        """Parse all job cards from a search-results HTML string."""
-        tree = HTMLParser(html)
+        """Parse all job cards from a search-results HTML string.
+
+        Strips Emotion CSS-in-JS ``<style>`` blocks first so that ``.text()``
+        calls on card nodes return clean content rather than raw CSS.
+        """
+        clean_html = _STYLE_RE.sub("", html)
+        tree = HTMLParser(clean_html)
         cards = tree.css('[data-at="job-item"]')
         if not cards:
             logger.warning(
@@ -304,19 +324,22 @@ class StepStoneAdapter(SourceAdapter):
         location = _node_text(card.css_first('[data-at="job-item-location"]'))
 
         # --- Salary ---
-        salary_raw = _node_text(card.css_first('[data-at="job-item-salary"]'))
+        salary_raw = _node_text(card.css_first('[data-at="job-item-salary-info"]'))
 
         # --- Contract type ---
-        contract_raw = (
-            _node_text(card.css_first('[data-at="job-item-employment-type"]'))
-            or "contract"
-        )
+        # Employment-type tag is no longer rendered in StepStone search cards;
+        # default to "contract" since we filter by contract=true in the URL.
+        contract_raw = "contract"
 
-        # --- Card snippet (detail-fetch skipped for MVP) ---
-        description = _node_text(card.css_first('[data-at="job-item-description"]'))
+        # --- Card snippet ---
+        # Description is not rendered in search result cards on the current
+        # StepStone platform.  Left as None; detail-fetch is deferred to v0.2.
+        description: str | None = None
 
         # --- Posted date ---
-        date_node = card.css_first('[data-at="job-item-date"]') or card.css_first(
+        # StepStone now uses data-at="job-item-timeago" wrapping a <time> element
+        # with relative text ("2 days ago", "1 week ago", etc.).
+        date_node = card.css_first('[data-at="job-item-timeago"]') or card.css_first(
             "time"
         )
         date_text: str | None = None
@@ -360,7 +383,7 @@ if __name__ == "__main__":
     _extra: dict[str, Any] = (_cfg.model_extra or {}) if _cfg else {}
     _domain = _extra.get("domain", "www.totaljobs.com")
     _search_path = _extra.get(
-        "search_path", "/jobs/project-manager/engineering-jobs"
+        "search_path", "/jobs/project-manager/in-uk"
     )
     _delay = _cfg.crawl_delay if _cfg else 3
 

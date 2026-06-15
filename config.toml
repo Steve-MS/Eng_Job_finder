@@ -10,14 +10,22 @@ location = ""
 results_to_take = 100
 safety_cap = 500
 
+# Akamai Bot Manager protects all StepStone-family sites (Totaljobs, CWJobs).
+# Live probe 2026-06-15: HTTP 200 with stripped body (~98KB, 0 job cards)
+# and `_abck` session cookie marked unvalidated (~-1~). Fixture parsing
+# works (16/16 tests pass against captured HTML) but live fetch returns no
+# listings. Disabled pending alternative strategy — see
+# .squad/decisions/inbox/michael-stepstone-akamai-blocked.md.
 [sources.totaljobs]
-enabled = true
+enabled = false
 crawl_delay = 3
 domain = "www.totaljobs.com"
-search_path = "/jobs/project-manager/engineering-jobs"
+# /jobs/project-manager/engineering-jobs returned HTTP 500 (stale path).
+# Confirmed working 2026-06-15: /jobs/project-manager/in-uk returns 200 + 25 cards.
+search_path = "/jobs/project-manager/in-uk"
 
 [sources.cwjobs]
-enabled = true
+enabled = false
 crawl_delay = 3
 domain = "www.cwjobs.co.uk"
 search_path = "/jobs/project-manager/in-uk"
