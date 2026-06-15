@@ -1,0 +1,100 @@
+{
+  "jobs": [
+    {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "title": "Engineering Project Manager",
+      "url": "https://www.aviationjobsearch.com/jobs/management/projects-manager/engineering-project-manager-by-jmc-recruitment-solutions-607645",
+      "datePosted": "2026-05-26",
+      "validThrough": "2026-06-22",
+      "description": "<p><strong>Job Purpose</strong></p><p>The Project Manager is ultimately responsible for the management and coordination of all engineering and associated projects including tank entry teams.</p>",
+      "employmentType": "FULL_TIME",
+      "experienceRequirements": "",
+      "industry": "Project Manager",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "JMC Aviation",
+        "value": 181
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Exeter",
+          "addressRegion": "Devon",
+          "addressCountry": "England"
+        }
+      },
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "JMC Aviation",
+        "sameAs": "",
+        "logo": "https://www.aviationjobsearch.com/storage/AJS/uploads/company/1_500/181.jpg?v=1693988754"
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "title": "Part-145 Maintenance Manager",
+      "url": "https://www.aviationjobsearch.com/jobs/management/managers/part-145-maintenance-manager-by-volantes-technical-consultants-615688",
+      "datePosted": "2026-06-04",
+      "validThrough": "2026-07-01",
+      "description": "<p>An exceptional opportunity for a highly motivated, senior professional seeking a challenging and rewarding leadership role within a fast-paced, growing MRO business based on-site at St Athan.</p>",
+      "employmentType": "FULL_TIME",
+      "experienceRequirements": "",
+      "industry": "Managers",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "Volantes Technical Recruitment Ltd",
+        "value": 2005
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Saint Athan",
+          "addressRegion": "Vale of Glamorgan",
+          "addressCountry": "Wales"
+        }
+      },
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "Volantes Technical Recruitment Ltd",
+        "sameAs": "",
+        "logo": "https://www.aviationjobsearch.com/storage/AJS/uploads/company/2001_2500/9320ae96e0b451c74546d326923b3e80d0ecd5e9.jpg"
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "title": "Powerplant Director",
+      "url": "https://www.aviationjobsearch.com/jobs/management/director/powerplant-director-by-zenon-606868",
+      "datePosted": "2026-05-29",
+      "validThrough": "2026-06-25",
+      "description": "<p>Zenon is delighted to be supporting a very well-established Airline in sourcing a Powerplant Director for their HQ based in the Middle East.</p>",
+      "employmentType": "FULL_TIME",
+      "experienceRequirements": "",
+      "industry": "Director",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "ZENON",
+        "value": 211
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Egypt",
+          "addressRegion": null,
+          "addressCountry": null
+        }
+      },
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "ZENON",
+        "sameAs": "",
+        "logo": "https://www.aviationjobsearch.com/storage/AJS/uploads/company/1_500/211.jpg?v=1734010599"
+      }
+    }
+  ]
+}

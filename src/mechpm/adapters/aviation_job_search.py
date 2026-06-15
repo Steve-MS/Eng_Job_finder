@@ -1,39 +1,51 @@
-"""Aviation Job Search adapter.
+"""Aviation Job Search adapter — Sitemap + LD+JSON strategy.
 
-Strategy:   HTML GET with realistic browser headers → selectolax CSS-selector parsing.
-URL:        https://www.aviationjobsearch.com/en-GB/jobs
-            ?title=project+manager&job_categories=Engineering&contract_types=2
-robots.txt: Disallows /api/* and action paths only; Allow: / for all public pages.
-Crawl-delay: 3 s between page requests (per robots.txt and binding team decision).
-Pagination: &page=N (1-indexed), capped at page 5.
-Aggregator: This board aggregates employer ATS feeds → metadata["aggregator"] = True
-            so Ada's dedup pass knows to weight source_listing_id over employer match.
+Why this approach (not the original CSS-selector scraping):
+    The search results page (aviationjobsearch.com/en-GB/jobs) is a fully
+    client-side app.  ``AppData.is_ssr`` is ``false`` in the embedded page
+    data; the ``#searchResults`` div is empty in the static HTML response.
+    The internal AJAX endpoint (``/api/v1/jobs``) is explicitly
+    ``Disallow``-ed in robots.txt and must not be called.
+
+    Individual job-detail pages (``/jobs/{cat}/{sub}/{title-id}``) ARE
+    server-side rendered and embed a rich ``schema.org/JobPosting`` JSON-LD
+    block.  The public sitemap (explicitly listed in robots.txt) provides
+    all active job-detail URLs.
+
+Strategy:
+    1. Fetch ``/en-GB/sitemap/jobs.xml`` (robots.txt lists this explicitly).
+    2. Filter job URLs by ``/management/`` category path or PM-keyword title slug.
+    3. Apply optional ``lastmod``-based pre-filter when *since* is supplied.
+    4. Fetch each matched job-detail page (3 s crawl-delay between requests).
+    5. Extract the ``schema.org/JobPosting`` LD+JSON block from the SSR page.
+    6. Map structured JSON to a ``RawListing``.
+
+robots.txt: ``Disallow: /api/*`` only; ``/jobs/*`` and ``/en-GB/sitemap/*`` allowed.
+Crawl-delay: 3 s between every HTTP request (binding team decision).
+Aggregator: True — board aggregates employer ATS feeds; dedup on source_listing_id.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from urllib.parse import urljoin, urlparse
+from datetime import datetime, timezone
+from urllib.parse import urlparse
+from typing import Any
 
 import httpx
-from selectolax.parser import HTMLParser, Node
+from selectolax.parser import HTMLParser
 
 from mechpm.adapters.base import RawListing, SourceAdapter
 
 logger = logging.getLogger("mechpm.adapter.aviation_job_search")
 
 _BASE_URL = "https://www.aviationjobsearch.com"
-_SEARCH_PATH = "/en-GB/jobs"
-_SEARCH_PARAMS: dict[str, str] = {
-    "title": "project manager",
-    "job_categories": "Engineering",
-    "contract_types": "2",
-}
-_MAX_PAGES = 5
-_PAGE_DELAY_SECONDS = 3
+_SITEMAP_URL = f"{_BASE_URL}/en-GB/sitemap/jobs.xml"
 _REQUEST_TIMEOUT = 30.0
+_PAGE_DELAY_SECONDS = 3
+_MAX_JOBS = 100  # safety cap on individual page fetches per run
 
 _BROWSER_HEADERS = {
     "User-Agent": (
@@ -46,194 +58,224 @@ _BROWSER_HEADERS = {
         "image/avif,image/webp,*/*;q=0.8"
     ),
     "Accept-Language": "en-GB,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",  # Omit 'br': httpx has no built-in Brotli decoder
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
 }
 
-# Ordered candidate selectors for job listing cards.
-# The adapter tries each in sequence and uses the first that yields results.
-_CARD_SELECTORS = [
-    "[data-test='job-item']",
-    "[data-testid='job-card']",
-    "[data-testid='job-item']",
-    "article.job",
-    "li.job-listing",
-    "div.job-listing",
-    "div.job-result-card",
-    "div.job-card",
-    ".listing-item",
-    ".search-result-item",
-    "li[class*='job']",
-    "div[class*='job-item']",
-    "div[class*='job-card']",
+# URL path patterns for relevant job categories / title keywords.
+# A URL matches if its path contains /management/ OR the title slug contains
+# a PM-adjacent keyword.
+_RELEVANT_PATTERNS = [
+    re.compile(r"/management/"),
+    re.compile(r"project[_-]manag", re.I),
+    re.compile(r"programme[_-]manag", re.I),
+    re.compile(r"project[_-]lead", re.I),
+    re.compile(r"project[_-]coord", re.I),
 ]
 
-# Sub-selector candidates for each field (first match wins).
-_TITLE_SELECTORS = [
-    "[data-test='job-title']",
-    "[data-testid='job-title']",
-    "h2 a",
-    "h3 a",
-    "h2",
-    "h3",
-    ".job-title a",
-    ".job-title",
-    "a.title",
-    ".title a",
-    ".title",
-]
-_EMPLOYER_SELECTORS = [
-    "[data-test='employer']",
-    "[data-testid='employer']",
-    ".company-name",
-    ".employer-name",
-    ".employer",
-    ".company",
-    "[class*='employer']",
-    "[class*='company']",
-]
-_LOCATION_SELECTORS = [
-    "[data-test='location']",
-    "[data-testid='location']",
-    ".location",
-    ".job-location",
-    "[class*='location']",
-    "span[itemprop='addressLocality']",
-]
-_SALARY_SELECTORS = [
-    "[data-test='salary']",
-    "[data-testid='salary']",
-    ".salary",
-    ".rate",
-    ".compensation",
-    "[class*='salary']",
-    "[class*='rate']",
-]
-_DATE_SELECTORS = [
-    "time",
-    "[data-test='posted-date']",
-    "[data-testid='posted-date']",
-    ".posted-date",
-    ".listing-date",
-    "[class*='posted']",
-    "[class*='date']",
-    ".date",
-]
+# Captures (loc, optional lastmod) from each <url> block in the sitemap XML.
+_SITEMAP_RE = re.compile(
+    r"<url>\s*<loc>([^<]+)</loc>"
+    r"(?:.*?<lastmod>([^<]+)</lastmod>)?",
+    re.DOTALL,
+)
+
+# Extracts the trailing numeric job ID from a URL slug.
+# URL format: {title-slug}-by-{employer-slug}-{numeric-job-id}
+_JOB_ID_RE = re.compile(r"-(\d+)$")
 
 
-def _parse_date_str(text: str | None) -> datetime | None:
-    """Parse Aviation Job Search date strings (relative or absolute) to UTC datetime."""
-    if not text:
+# ---------------------------------------------------------------------------
+# Pure-function helpers (importable for unit tests)
+# ---------------------------------------------------------------------------
+
+def _is_relevant_url(url: str) -> bool:
+    """Return True if the URL path matches any relevant category / keyword pattern."""
+    path = urlparse(url).path
+    return any(p.search(path) for p in _RELEVANT_PATTERNS)
+
+
+def _extract_job_id(url: str) -> str:
+    """Extract the numeric job ID from the trailing segment of the URL slug.
+
+    Example: …/engineering-project-manager-by-jmc-recruitment-solutions-607645
+    → "607645"
+    """
+    slug = urlparse(url).path.rstrip("/").split("/")[-1]
+    m = _JOB_ID_RE.search(slug)
+    return m.group(1) if m else slug
+
+
+def _parse_date(date_str: str | None) -> datetime | None:
+    """Parse an ISO date string from schema.org/JobPosting to UTC-aware datetime."""
+    if not date_str:
         return None
-    text = text.strip()
-    if not text:
-        return None
-    now = datetime.now(timezone.utc)
-    lower = text.lower()
-
-    # Relative formats
-    if lower in ("today", "just now", "less than a day ago"):
-        return now.replace(hour=0, minute=0, second=0, microsecond=0)
-    if lower == "yesterday":
-        return (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    m = re.match(r"(\d+)\s*(day|days|week|weeks|month|months)\s+ago", lower)
-    if m:
-        n, unit = int(m.group(1)), m.group(2)
-        if "day" in unit:
-            return now - timedelta(days=n)
-        if "week" in unit:
-            return now - timedelta(weeks=n)
-        if "month" in unit:
-            return now - timedelta(days=n * 30)
-
-    # Absolute formats
     for fmt in (
-        "%d %b %Y",
-        "%d %B %Y",
-        "%B %d, %Y",
-        "%b %d, %Y",
-        "%d/%m/%Y",
         "%Y-%m-%d",
-        "%d-%m-%Y",
-        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S%z",
         "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S",
     ):
         try:
-            return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(date_str.strip(), fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
         except ValueError:
             continue
-
-    logger.debug("Aviation Job Search: could not parse date string %r", text)
+    logger.debug("Aviation Job Search: could not parse date string %r", date_str)
     return None
 
 
-def _extract_listing_id(url: str) -> str:
-    """Return a stable listing ID from the URL path.
+def _parse_ldjson_job(html: str) -> dict[str, Any] | None:
+    """Extract the first schema.org/JobPosting LD+JSON dict from SSR HTML.
 
-    Prefers a numeric path segment (the canonical job-ID on most boards).
-    Falls back to the last non-empty path segment.
+    Iterates all <script> tags, skipping those whose ``type`` attribute does
+    not contain ``ld+json``, and returns the first that JSON-parses to a
+    ``{"@type": "JobPosting"}`` dict.
     """
-    if not url:
-        return ""
-    path = urlparse(url).path
-    segments = [s for s in path.strip("/").split("/") if s]
-    for seg in segments:
-        if re.match(r"^\d+$", seg):
-            return seg
-    return segments[-1] if segments else url
-
-
-def _node_text(node: Node, *selectors: str) -> str | None:
-    """Return stripped text from the first matching sub-selector inside *node*."""
-    for sel in selectors:
-        try:
-            el = node.css_first(sel)
-            if el:
-                text = el.text(strip=True)
-                if text:
-                    return text
-        except Exception:  # pragma: no cover — defensive
-            continue
-    return None
-
-
-def _link_href(node: Node, selector: str = "a[href]") -> str | None:
-    """Return the href attribute from the first anchor matching *selector*."""
     try:
-        el = node.css_first(selector)
-        if el:
-            return el.attributes.get("href")
-    except Exception:  # pragma: no cover
-        pass
+        tree = HTMLParser(html)
+    except Exception:
+        return None
+    for node in tree.css("script"):
+        if "ld+json" not in (node.attributes.get("type") or "").lower():
+            continue
+        try:
+            data = json.loads(node.text())
+        except (json.JSONDecodeError, Exception):
+            continue
+        if isinstance(data, dict) and data.get("@type") == "JobPosting":
+            return data
     return None
 
+
+def _map_ldjson_job(
+    job: dict[str, Any],
+    source_url: str,
+) -> RawListing | None:
+    """Map a schema.org/JobPosting dict to a canonical RawListing.
+
+    Field mapping confirmed 2026-06-15 against live Aviation Job Search pages::
+
+        title                      → title
+        url                        → url (absolute, canonical)
+        datePosted                 → posted_at  (ISO date, e.g. "2026-05-26")
+        validThrough               → metadata["valid_through"]
+        hiringOrganization.name    → employer
+        jobLocation.address.*      → location_raw (locality, region, country)
+        employmentType             → contract_type_raw  (e.g. "FULL_TIME")
+        description                → description_raw (HTML string)
+        identifier.value           → metadata["org_id"] (employer org ID)
+        Trailing -NNN in URL       → source_listing_id
+    """
+    title = job.get("title")
+    if not title:
+        return None
+
+    url = job.get("url") or source_url
+    listing_id = _extract_job_id(url) or _extract_job_id(source_url)
+    if not listing_id:
+        return None
+
+    # --- employer ---
+    hiring_org = job.get("hiringOrganization") or {}
+    employer = hiring_org.get("name") if isinstance(hiring_org, dict) else None
+
+    # --- location: addressLocality, addressRegion, addressCountry ---
+    job_location = job.get("jobLocation") or {}
+    address: dict[str, Any] = {}
+    if isinstance(job_location, dict):
+        address = job_location.get("address") or {}
+    location_parts: list[str] = []
+    if isinstance(address, dict):
+        for field in ("addressLocality", "addressRegion", "addressCountry"):
+            val = address.get(field)
+            if val and str(val) not in location_parts:
+                location_parts.append(str(val))
+    location_raw = ", ".join(location_parts) if location_parts else None
+
+    # --- dates ---
+    posted_at = _parse_date(job.get("datePosted"))
+    valid_through = job.get("validThrough")
+
+    # --- employment type ---
+    employment_type = job.get("employmentType")  # "FULL_TIME", "CONTRACTOR", etc.
+
+    # --- description (HTML) ---
+    description_raw = job.get("description") or None
+
+    # --- salary (schema.org baseSalary — rarely populated on this site) ---
+    salary_raw: str | None = None
+    base_salary = job.get("baseSalary")
+    if isinstance(base_salary, dict):
+        val = base_salary.get("value") or {}
+        currency = base_salary.get("currency") or "GBP"
+        if isinstance(val, dict):
+            min_v = val.get("minValue")
+            max_v = val.get("maxValue")
+            if min_v is not None and max_v is not None:
+                salary_raw = f"{currency} {min_v}–{max_v}"
+            elif min_v is not None:
+                salary_raw = f"{currency} {min_v}"
+            elif max_v is not None:
+                salary_raw = f"{currency} {max_v}"
+
+    # --- metadata ---
+    identifier = job.get("identifier") or {}
+    org_id = identifier.get("value") if isinstance(identifier, dict) else None
+    metadata: dict[str, Any] = {
+        "aggregator": True,
+        "employment_type": employment_type,
+    }
+    if valid_through:
+        metadata["valid_through"] = valid_through
+    if org_id is not None:
+        metadata["org_id"] = org_id
+
+    return RawListing(
+        source="aviation_job_search",
+        source_listing_id=listing_id,
+        url=url,
+        title=title,
+        employer=employer,
+        agency=None,
+        location_raw=location_raw,
+        description_raw=description_raw,
+        posted_at=posted_at,
+        salary_raw=salary_raw,
+        contract_type_raw=employment_type or "unknown",
+        metadata=metadata,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Adapter
+# ---------------------------------------------------------------------------
 
 class AviationJobSearchAdapter(SourceAdapter):
     """Adapter for aviationjobsearch.com.
 
-    Strategy: HTML GET → selectolax parse.
-    robots.txt: Disallows /api/* and action paths only; Allow: / for all public pages.
-    Crawl-delay: 3 s between successive page requests.
-    Aggregator flag: True — this board aggregates many employer ATS feeds,
-        so Ada must treat source_listing_id as the primary dedup key.
+    Strategy: Sitemap-driven + LD+JSON parsing of individual job-detail pages.
+    See module docstring for full rationale.
+    Crawl-delay: 3 s between every HTTP request (robots.txt + team decision).
+    Aggregator: True — board aggregates employer ATS feeds.
     """
 
     name = "aviation_job_search"
-    crawl_delay = 3
 
     def __init__(self, crawl_delay: int = 3, **kwargs: object) -> None:
         self.crawl_delay = crawl_delay
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
-        """Fetch contract PM listings from Aviation Job Search (up to 5 pages).
+        """Fetch aviation management / PM job listings via sitemap + LD+JSON.
 
-        Sleeps _PAGE_DELAY_SECONDS between page requests.
-        Applies ``since`` client-side on posted_at.
-        Returns [] on any failure; never raises.
+        1. Fetch jobs.xml sitemap → filter relevant URLs.
+        2. Fetch each job-detail page → parse schema.org/JobPosting LD+JSON.
+        3. Apply *since* filter client-side on posted_at.
+
+        Returns [] on any unrecoverable error — never raises.
         """
         listings: list[RawListing] = []
         try:
@@ -242,23 +284,25 @@ class AviationJobSearchAdapter(SourceAdapter):
                 timeout=_REQUEST_TIMEOUT,
                 follow_redirects=True,
             ) as client:
-                for page in range(1, _MAX_PAGES + 1):
-                    params = {**_SEARCH_PARAMS, "page": str(page)}
-                    page_listings = await self._fetch_page(client, page, params)
+                job_urls = await self._fetch_sitemap(client)
+                if not job_urls:
+                    logger.warning(
+                        "Aviation Job Search: sitemap returned 0 relevant job URLs."
+                    )
+                    return listings
 
-                    if not page_listings:
-                        logger.info(
-                            "Aviation Job Search: no listings on page %d — stopping early.",
-                            page,
-                        )
-                        break
+                logger.info(
+                    "Aviation Job Search: %d relevant job URL(s) from sitemap.",
+                    len(job_urls),
+                )
 
-                    for listing in page_listings:
-                        if since and listing.posted_at and listing.posted_at < since:
+                for idx, url in enumerate(job_urls):
+                    raw = await self._fetch_job_page(client, url)
+                    if raw is not None:
+                        if since and raw.posted_at and raw.posted_at < since:
                             continue
-                        listings.append(listing)
-
-                    if page < _MAX_PAGES:
+                        listings.append(raw)
+                    if idx < len(job_urls) - 1:
                         await asyncio.sleep(_PAGE_DELAY_SECONDS)
 
         except Exception:
@@ -275,135 +319,63 @@ class AviationJobSearchAdapter(SourceAdapter):
         )
         return listings
 
-    async def _fetch_page(
+    async def _fetch_sitemap(self, client: httpx.AsyncClient) -> list[str]:
+        """Fetch jobs.xml sitemap and return filtered job-detail URLs."""
+        try:
+            resp = await client.get(_SITEMAP_URL)
+            resp.raise_for_status()
+        except Exception:
+            logger.exception("Aviation Job Search: failed to fetch sitemap.")
+            return []
+
+        urls: list[str] = []
+        for m in _SITEMAP_RE.finditer(resp.text):
+            loc = m.group(1).strip()
+            if _is_relevant_url(loc):
+                urls.append(loc)
+        return urls[:_MAX_JOBS]
+
+    async def _fetch_job_page(
         self,
         client: httpx.AsyncClient,
-        page: int,
-        params: dict[str, str],
-    ) -> list[RawListing]:
-        """Fetch one search results page; returns [] on any HTTP or network error."""
-        url = f"{_BASE_URL}{_SEARCH_PATH}"
+        url: str,
+    ) -> RawListing | None:
+        """Fetch one job-detail page and parse its LD+JSON. Returns None on error."""
         try:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
+            resp = await client.get(url)
+            resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             logger.warning(
-                "Aviation Job Search HTTP error (page=%d, status=%s): %s",
-                page,
+                "Aviation Job Search HTTP error (url=%s, status=%s).",
+                url,
                 exc.response.status_code,
-                exc,
             )
-            return []
+            return None
         except Exception:
-            logger.exception("Aviation Job Search request failed (page=%d).", page)
-            return []
-
-        return self._parse_page(response.text, page)
-
-    def _parse_page(self, html: str, page: int) -> list[RawListing]:
-        """Parse listing cards from raw HTML; returns [] if no selectors match."""
-        tree = HTMLParser(html)
-        cards = None
-        matched_selector: str | None = None
-
-        for sel in _CARD_SELECTORS:
-            try:
-                found = tree.css(sel)
-                if found:
-                    cards = found
-                    matched_selector = sel
-                    break
-            except Exception:
-                continue
-
-        if not cards:
-            logger.warning(
-                "Aviation Job Search: no listing cards found on page %d. "
-                "All selectors exhausted — HTML structure may have changed. "
-                "Selectors tried: %s",
-                page,
-                _CARD_SELECTORS,
+            logger.exception(
+                "Aviation Job Search request failed (url=%s).", url
             )
-            return []
-
-        logger.debug(
-            "Aviation Job Search: page %d — %d card(s) matched via selector %r.",
-            page,
-            len(cards),
-            matched_selector,
-        )
-
-        listings: list[RawListing] = []
-        for card in cards:
-            try:
-                listing = self._map_card(card, page)
-                if listing is not None:
-                    listings.append(listing)
-            except Exception:
-                logger.debug(
-                    "Aviation Job Search: failed to map card (page=%d) — skipping.",
-                    page,
-                    exc_info=True,
-                )
-        return listings
-
-    def _map_card(self, card: Node, page: int) -> RawListing | None:
-        """Map a single card node to a RawListing; returns None if essential fields absent."""
-        # Resolve listing URL
-        href = _link_href(card)
-        if not href:
-            return None
-        if not href.startswith("http"):
-            href = urljoin(_BASE_URL, href)
-
-        listing_id = _extract_listing_id(href)
-        if not listing_id:
             return None
 
-        title = _node_text(card, *_TITLE_SELECTORS)
-        if not title:
+        job = _parse_ldjson_job(resp.text)
+        if job is None:
+            logger.warning(
+                "Aviation Job Search: no JobPosting LD+JSON found at %s.", url
+            )
             return None
+        return _map_ldjson_job(job, url)
 
-        employer = _node_text(card, *_EMPLOYER_SELECTORS)
-        location = _node_text(card, *_LOCATION_SELECTORS)
-        salary = _node_text(card, *_SALARY_SELECTORS)
 
-        # Date: try sub-selectors first, then <time datetime="..."> attribute
-        date_text = _node_text(card, *_DATE_SELECTORS)
-        if not date_text:
-            try:
-                time_el = card.css_first("time")
-                if time_el:
-                    date_text = (
-                        time_el.attributes.get("datetime") or time_el.text(strip=True)
-                    )
-            except Exception:
-                pass
-
-        return RawListing(
-            source="aviation_job_search",
-            source_listing_id=listing_id,
-            url=href,
-            title=title,
-            employer=employer,
-            agency=None,
-            location_raw=location,
-            description_raw=None,
-            posted_at=_parse_date_str(date_text),
-            salary_raw=salary,
-            contract_type_raw="contract",
-            metadata={
-                "aggregator": True,
-            },
-        )
-
+# ---------------------------------------------------------------------------
+# Self-test
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import asyncio as _asyncio
     import logging as _logging
 
     _logging.basicConfig(
-        level=_logging.DEBUG,
+        level=_logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
     )
     _adapter = AviationJobSearchAdapter()
@@ -413,5 +385,5 @@ if __name__ == "__main__":
         print(
             f"  [{_r.source_listing_id}] {_r.title!r}"
             f" | {_r.employer} | {_r.location_raw}"
-            f" | {_r.posted_at} | {_r.salary_raw}"
+            f" | {_r.posted_at} | {_r.contract_type_raw}"
         )
