@@ -6,7 +6,7 @@
 enabled = true
 crawl_delay = 0
 keywords = "project manager mechanical engineering"
-location = "UK"
+location = ""
 results_to_take = 100
 safety_cap = 500
 

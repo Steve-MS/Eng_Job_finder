@@ -193,3 +193,36 @@ JSON path from page root: `props.pageProps.data.jobs.pages` (list of job dicts)
 - Rate fields: 0% (expected — search results never expose salary)
 - Test suite: 106 passed, 25 skipped, 0 failed (was 95 before this sprint)
 
+---
+
+## 2026-06-15: Reed locationName Fix — Regression Test + Live Verification
+
+**Problem identified:** Reed adapter was sending `locationName=UK` to the Reed API. Reed treats `locationName` as a city/town field and does not recognize "UK" as a valid location code → returns **0 results** every time.
+
+**API behaviour confirmed via direct testing:**
+- With `locationName=UK`: 0 results returned
+- Without `locationName` param: 29 contract mechanical-PM listings returned
+- Reed is UK-only by default — no location param needed for nationwide search
+
+**Fix applied (2026-06-15):**
+1. Changed `_DEFAULT_LOCATION = "UK"` to `_DEFAULT_LOCATION = ""` in `src/mechpm/adapters/reed.py:26`
+2. Modified `_fetch_page()` params dict construction (lines 146-153) to only include `locationName` when `self.location` is non-empty
+3. Updated `config.toml:9` to set `location = ""` (empty string)
+4. Added regression test suite: 5 new test cases in `tests/adapters/test_reed.py` covering:
+   - Empty location omits `locationName` param
+   - Non-empty location includes `locationName` param
+   - Default location is `""`
+   - Custom locations preserved
+   - Keywords and contract params always present
+
+**Live verification (2026-06-15T09:05:13Z):**
+```
+Reed: fetched 29 listing(s) (pages_fetched=1, since=None).
+HTTP Request: GET https://www.reed.co.uk/api/1.0/search?keywords=project+manager+mechanical+engineering&contract=true&resultsToTake=100&resultsToSkip=0
+(note: locationName parameter is NOT present)
+```
+
+**Test results:** 128 passed (baseline 123 + 5 new Reed tests), 25 skipped, 0 failed
+
+**Live run after fix:** 29 contract listings fetched from Reed (UP from 0), matching expected behaviour. Pipeline extracted 79 total listings (all sources), stored 8 normalized records after filtering.
+

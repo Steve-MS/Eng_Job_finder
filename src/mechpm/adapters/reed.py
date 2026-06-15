@@ -23,7 +23,7 @@ logger = logging.getLogger("mechpm.adapter.reed")
 
 REED_API_BASE = "https://www.reed.co.uk/api/1.0"
 _DEFAULT_KEYWORDS = "project manager mechanical engineering"
-_DEFAULT_LOCATION = "UK"
+_DEFAULT_LOCATION = ""
 _DEFAULT_RESULTS_TO_TAKE = 100
 _DEFAULT_SAFETY_CAP = 500
 _PAGE_DELAY_SECONDS = 6  # 10 req/min ceiling → 6 s between successive requests
@@ -145,11 +145,12 @@ class ReedAdapter(SourceAdapter):
         """Fetch one page of Reed search results; returns [] on HTTP/network error."""
         params: dict[str, Any] = {
             "keywords": self.keywords,
-            "locationName": self.location,
             "contract": "true",
             "resultsToTake": self.results_to_take,
             "resultsToSkip": skip,
         }
+        if self.location:
+            params["locationName"] = self.location
         try:
             response = await client.get(f"{REED_API_BASE}/search", params=params)
             response.raise_for_status()
