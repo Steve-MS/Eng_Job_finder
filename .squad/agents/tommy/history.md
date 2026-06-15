@@ -11,6 +11,33 @@
 ## Learnings
 <!-- Append new learnings here. Use ISO 8601 dates. -->
 
+### 2026-06-15: v0.2 Query Strategy — Multi-Source Keyword Slate
+
+**Decision:** Broadened search from single narrow query to multi-query slate per source.
+
+**Operator Support Matrix (confirmed from code + live testing):**
+
+| Source | OR support | Exclude support | Multi-keyword strategy |
+|--------|-----------|----------------|----------------------|
+| Reed | No (single AND string) | No | Multiple sequential queries, union by jobId |
+| Adzuna | Yes (`what_or`) | Yes (`what_exclude`) | Single broad OR query with exclusions |
+| Energy Jobline | No (single keyword param) | No | Multiple sequential queries, union by node ID |
+| RailwayPeople | N/A (whole site = filter) | N/A | No keyword query needed |
+| Aviation Job Search | N/A (sitemap-driven) | N/A | Broaden URL pattern filter |
+
+**Key design insights:**
+1. Multi-query + union is the universal pattern for sources without OR support.
+2. Source-level contract filters (Reed `contract=true`, Adzuna `contract=1`, EJL `contract_type=contract`) are first-pass noise reduction; Ada's `passes_contract` is the true gate.
+3. Broader queries are safe when the downstream filter taxonomy is strong. PM_TITLE_RE + MECH_KEYWORDS + DISQUALIFY_PHRASES in series maintain ≥80% combined precision.
+4. Energy Jobline's "0 stored" problem was caused by sector-specific PM titles (e.g., "Engineering Manager") not matching the narrow PM_TITLE_RE. Fix: expand PM_TITLE_RE + rely on mechanical filter as the precision backstop.
+5. Cross-source dedup at Jaro-Winkler 0.85 is appropriate for v0.2; no tuning needed. Same-source dedup by `source_listing_id` handles multi-query overlap.
+6. Adzuna's native `what_or` + `what_exclude` + `category` make it the most precise source at query time — less work for downstream filters.
+7. Aviation Job Search: adding `/engineering/` category doubles URL coverage but needs `_MAX_JOBS` cap (50) to prevent 5-min crawl times.
+
+**Expected yield improvement:** ~26 stored → ~55-95 stored (3-4× increase).
+
+**Spec location:** `.squad/decisions/inbox/tommy-v02-query-slate.md`
+
 ### 2026-06-12: Reviewer-Lockout Patches (Tommy, escalation author)
 
 **Context:** Arthur (Reviewer) rejected Ada's UK filter and mechanical-domain filter on 2 gold-set cases. Steve invoked strict Reviewer Rejection Lockout, assigning Tommy as revision author. Ada is locked out of this revision.
@@ -66,3 +93,53 @@
 
 ## 2026-06-12: Implementation Sprint 1 Complete — Cross-Team Sync
 **Sprint outcome:** Tommy (architecture), Michael (scaffold + Reed), Ada (extraction + storage), Polly (reporter), Arthur (tests) all delivered. Architecture finalisation is binding. Full project scaffold + 28-field schema + 3-tier extraction + deduplicate + SQLite + Markdown reporter + 84-test suite complete. Orchestration logs: `.squad/orchestration-log/2026-06-12T{17:30,18:30}Z-{agent}.md`. Session log: `.squad/log/2026-06-12T1830-implementation-sprint-1.md`. **⚠️ Arthur surfaced 2 real defects for Ada's immediate attention:** (1) UAE/Dubai location filter rejects valid expat-PM listings (medium, ~2% impact), (2) "civil engineering" keyword false-fires mech-domain filter (high, ~8% false positives, affects dedup precision). All acceptance criteria gates documented. Design locked; implementation ready to proceed to Sprint 2 (Michael's 6 remaining adapters).
+
+---
+
+## Architectural decisions
+
+### 2026-06-14: Pipeline Wiring — End-to-End CLI Spec
+
+**Problem:** `run_all()` only persists raw JSONL. None of the downstream modules (extraction, filtering, dedup, storage, reporting) are invoked. No SQLite DB or Markdown report is produced.
+
+**Decisions (summary):**
+1. **CLI shape:** Single `run-all` command does fetch→process→report end-to-end. Flags (`--skip-fetch`, `--skip-report`, `--since`, `--source`) provide composability without subcommand proliferation.
+2. **Handoff:** Re-read from JSONL on disk (decoupled; crash-resumable).
+3. **SQLite:** `data/mechpm.sqlite`, idempotent schema creation, UPSERT by `listing_id`. Added `first_seen_at` + `times_seen` columns for trend analytics.
+4. **Report scope:** Default last-7-days with 🆕 flag for today; override via `--since`.
+5. **Report path:** `reports/{YYYY-MM-DD}.md` (overwrite same-day re-runs).
+6. **Failure isolation:** Skip + quarantine per listing (WARNING log + `data/quarantine/`).
+7. **Idempotency:** `ON CONFLICT(listing_id) DO UPDATE SET last_seen_at=..., times_seen=times_seen+1`.
+8. **Empty source:** `run_manifest.json` emitted per run; reporter reads it for source-status table.
+
+**Spec:** `.squad/decisions/inbox/tommy-pipeline-wiring-spec.md`
+**Implementor:** Michael
+**Work items:** 10 (manifest, schema migration, pipeline module, quarantine, CLI wiring, flags, reporter extension, skip-report, e2e test, run.bat update)
+
+### 2026-06-15: JSONL File Policy & rapidfuzz Dependency
+
+**Problem:** Orchestrator's `_persist_jsonl` opened JSONL in `"a"` (append) mode. Three calibration runs today inflated `railwaypeople.jsonl` to ~150 rows for 50 actual jobs. Content-hash `listing_id`s diverged across runs (pre/post-calibration parse differences), defeating identity dedup and producing ghost "Unknown Employer" rows in the live report.
+
+**Decision 1 — JSONL policy: Option (A) Truncate per fetch.**
+Open `_persist_jsonl` in `"w"` mode. Each fetch run is the sole source of truth for that source+date. Loss window on mid-run crash is acceptable; SQLite holds all processed history and the operator simply reruns.
+
+**Decision 2 — rapidfuzz: Option (iii) Promote to required core dep; openai stays optional.**
+rapidfuzz is algorithmic baseline — identity-only dedup lets ghost duplicates survive. Pure-C wheel, no key/cost. openai stays optional (cost + key required).
+
+**Spec:** `.squad/decisions/inbox/tommy-jsonl-policy-and-deps.md`
+**Implementor:** Michael
+**Work items:** 5 (orchestrator open-mode fix, pyproject.toml, delete 2 stale JSONLs, overwrite regression test, rapidfuzz smoke test)
+
+## 2026-06-15: v0.2 sprint complete
+
+v0.2 query-slate expansion sprint concluded. Multi-session continuation across 8 agent spawns:
+- Tommy (Lead): Query-slate specification (700+ line decision drop)
+- Michael-16: Adzuna API adapter (5 listings)
+- Michael-17: M1-M7 multi-query refactor (orchestrator dedup)
+- Ada-4: A1-A4 filter taxonomy expansion (energy sector titles + country detection)
+- Ada: EJL root-cause fix (101→3 stored via filters)
+- Ada: Site Manager precision (false-positive rejection)
+- Ada: rate_parser module (18 listings structured)
+- Polly: Rate-period-aware rendering (seniority bands + normalization)
+
+Final state: **44 stored across 5 sources, 18 with structured day-rate, 398 tests passing.**
