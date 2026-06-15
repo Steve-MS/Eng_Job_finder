@@ -1,0 +1,20 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "sector": "automotive"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": false,
+    "mech_filter": false,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "not_pm_role",
+    "fail_filter": "pm_filter",
+    "notes": "v0.2 A3: 'sales manager' is a new DISQUALIFY_PHRASE. Title does not match PM_TITLE_RE. Automotive sector from description (OEM, tier 1 supplier). mech_filter also fails: 'sales manager' is disqualifier and no mech keyword in title."
+  }
+}

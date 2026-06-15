@@ -1,0 +1,27 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "inside",
+    "day_rate_min": 650.0,
+    "day_rate_max": 750.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 48,
+    "asap_flag": false,
+    "sector": "defence"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "defence",
+    "difficulty": "structured",
+    "notes": "v0.2 A1: 'engineering manager' is a new PM_TITLE_RE alternation. Defence sector (submarine, mod, naval). Inside IR35. 'submarine' is a new MECH_KEYWORDS addition (A2)."
+  }
+}

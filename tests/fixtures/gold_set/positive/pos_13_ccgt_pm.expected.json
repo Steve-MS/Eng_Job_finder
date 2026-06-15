@@ -1,0 +1,28 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "outside",
+    "day_rate_min": 600.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 72,
+    "asap_flag": true,
+    "start_date": null,
+    "sector": "energy"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "energy",
+    "difficulty": "structured",
+    "notes": "v0.2 A2: 'ccgt', 'combined cycle', 'gas turbine', 'p&id', 'hazop' are new MECH_KEYWORDS additions. Energy sector via power station keyword. Outside IR35. Represents EJL zero-storage fix."
+  }
+}

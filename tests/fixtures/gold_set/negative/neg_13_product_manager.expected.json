@@ -1,0 +1,25 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "inside",
+    "day_rate_min": 500.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": false,
+    "mech_filter": false,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "not_pm_role",
+    "fail_filter": "pm_filter",
+    "notes": "v0.2 A3: 'product manager' is a new DISQUALIFY_PHRASE (tech product != project manager). Title does not match PM_TITLE_RE. Description has sprint/backlog/agile signals but zero PM_BODY_SIGNALS (gantt, RAID, risk register, etc.)."
+  }
+}

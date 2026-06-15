@@ -32,14 +32,28 @@ _KNOWN_NON_UK_CODES: frozenset[str] = frozenset(code for _, code in _NON_UK_MAP)
 # example: "Programme Manager (Contract)"         → match
 # example: "Project Management Officer"           → match
 # example: "Delivery Manager, Rail"               → match
-# example: "Engineering Manager"                  → NO match (too generic)
-# example: "Site Manager"                         → NO match
+# example: "Commissioning Manager"                → match (A1 — Tommy v0.2)
+# example: "M&E Manager"                          → match (A1 — Tommy v0.2)
+# example: "Engineering Manager"                  → match (A1 — Tommy v0.2)
+# example: "Site Manager (Mechanical)"            → match (A1 — Tommy v0.2)
 PM_TITLE_RE = re.compile(
     r"\b(?:"
+    # --- existing (unchanged) ---
     r"project\s+manager|programme\s+manager|program(?:me)?\s+manager"
     r"|project\s+management\s+(?:consultant|lead|officer|specialist|professional|coordinator)"
     r"|delivery\s+manager|project\s+director|project\s+lead"
     r"|p\.?m\.?(?=[\s,\-]|$)"  # standalone "PM" abbreviation (conservative)
+    # --- NEW (A1): sector-specific PM titles common on Energy Jobline / Adzuna ---
+    r"|engineering\s+manager"                 # "Engineering Manager (Contract)"
+    r"|construction\s+manager"               # "Construction Manager — M&E"
+    r"|site\s+manager"                       # "Site Manager (Mechanical)"
+    r"|commissioning\s+manager"              # "Commissioning Manager"
+    r"|m\s*&\s*e\s+manager"                  # "M&E Manager"
+    r"|installations?\s+manager"             # "Installation Manager"
+    r"|contracts?\s+manager"                 # "Contract Manager (Engineering)"
+    r"|project\s+engineer"                   # "Project Engineer" (PM-adjacent in energy)
+    r"|planning\s+manager"                   # "Planning Manager (Mechanical)"
+    r"|package\s+manager"                    # "Package Manager — HVAC"
     r")\b",
     re.IGNORECASE,
 )
@@ -78,52 +92,112 @@ PM_BODY_SIGNALS: list[str] = [
 # ---------------------------------------------------------------------------
 
 # Keywords that score positively for mechanical domain.
+# Merged list: original (44 items) + Tommy v0.2 MECH_KEYWORDS_ADDITIONS (57 items).
+# Sorted alphabetically for maintainability.  Total: 101 terms.
 # example: "HVAC design experience" → mech_score += 1
 # example: "Rolling stock PM"       → mech_score += 3 (title)
 MECH_KEYWORDS: list[str] = [
-    "mechanical",
-    "hvac",
-    "heating",
-    "ventilation",
+    "aerospace",
+    "ahu",                   # Air Handling Unit
     "air conditioning",
-    "m&e",
-    "building services",
-    "piping",
-    "pipework",
-    "pressure vessel",
-    "rotating equipment",
-    "turbine",
-    "compressor",
-    "pump",
-    "heat exchanger",
+    "air handling",
+    "aircraft carrier",
+    "airframe",
+    "assembly line",
+    "automotive",
+    "avionics",
+    "balance of plant",
+    "battery storage",       # BESS projects have mech scope
+    "bms",                   # Building Management System (mech-adjacent)
+    "body in white",         # automotive manufacturing
     "boiler",
-    "thermal",
-    "fluid",
-    "process plant",
+    "bop",                   # Balance of Plant
+    "building services",
+    "ccgt",                  # Combined Cycle Gas Turbine
     "chemical plant",
-    "refinery",
-    "petrochemical",
-    "oil and gas",
-    "offshore",
+    "chilled water",
+    "chiller",
+    "cladding",              # often mech-eng scope on industrial builds
+    "cnc",                   # CNC machining projects
+    "combined cycle",
+    "combustion",
+    "compressor",
+    "construction",
+    "decommissioning",       # nuclear/oil decommissioning — heavy mech
+    "depot",                 # train depot builds
+    "district heating",
+    "ductwork",
+    "electrification",       # OLE = mech + elec
+    "energy",
+    "engine overhaul",
+    "epc",                   # Engineering Procurement Construction
+    "factory build",
+    "feed",                  # Front End Engineering Design
+    "fixture",               # jig and fixture (manufacturing)
+    "fluid",
+    "frigate",
+    "gas turbine",
+    "hazop",                 # Process safety — indicates heavy eng
+    "heat exchanger",
+    "heating",
+    "hot water",
+    "hull",
+    "hvac",
+    "jig",
+    "lng",                   # Liquefied Natural Gas
+    "locomotive",
+    "m and e",               # some listings spell out "M and E"
+    "m&e",
+    "manufacturing",
+    "marine",
+    "mechanical",
+    "mechanical fit-out",
+    "mechanical fitout",
+    "mechanical installation",
+    "mep",                   # Mechanical Electrical Plumbing
+    "mro",                   # Maintenance Repair Overhaul (aerospace)
+    "naval",
     "nuclear",
-    "rolling stock",
+    "offshore",
+    "oil and gas",
+    "p&id",                  # Piping & Instrumentation Diagram
+    "paint shop",
+    "permanent way",         # p-way = mech infrastructure
+    "petrochemical",
+    "pipework",
+    "piping",
+    "plant room",
+    "plantroom",
+    "power station",
+    "powertrain",
+    "press shop",
+    "pressure vessel",
+    "process plant",
+    "production line",
+    "propulsion",
+    "pump",
     "rail",
     "railway",
-    "locomotive",
-    "aerospace",
-    "airframe",
-    "avionics",
-    "marine",
-    "naval",
+    "refinery",
+    "rolling stock",
+    "rotating equipment",
     "shipbuilding",
-    "construction",
-    "energy",
-    "power station",
-    "manufacturing",
-    "automotive",
-    "powertrain",
-    "combustion",
+    "signalling",            # often has mech-eng scope
+    "solar farm",            # mech-heavy BoP
+    "steam turbine",
+    "steel erection",
     "structural steel",
+    "submarine",
+    "substation",            # switchgear/transformer = mech-adjacent
+    "thermal",
+    "tooling",
+    "track renewal",
+    "traction",
+    "turbine",
+    "ventilation",
+    "warship",
+    "wind farm",
+    "wind turbine",
 ]
 
 # Phrases that disqualify — indicate a non-mechanical-engineering domain.
@@ -132,6 +206,7 @@ MECH_KEYWORDS: list[str] = [
 # example: "software engineer"  → disqualify_score += 5 (in title)
 # example: "IT project manager" → disqualify_score += 5 (in title)
 DISQUALIFY_PHRASES: list[str] = [
+    # --- original dev/IT disqualifiers ---
     "software engineer",
     "software developer",
     "software development",
@@ -155,8 +230,70 @@ DISQUALIFY_PHRASES: list[str] = [
     "full stack developer",
     "front end developer",
     "back end developer",
-    "civil engineer",      # disqualifies civil-only, not construction PM
-    "electrical engineer", # disqualifies pure electrical, not M&E PM
+    "civil engineer",          # disqualifies civil-only, not construction PM
+    "electrical engineer",     # disqualifies pure electrical, not M&E PM
+
+    # --- NEW (A3): IT / Digital / Cyber (Tommy v0.2 DISQUALIFY_PHRASES_ADDITIONS) ---
+    "it manager",
+    "it director",
+    "digital project manager",
+    "digital programme manager",
+    "digital transformation",
+    "cyber security",
+    "cybersecurity",
+    "information security",
+    "infosec",
+    "scrum master",
+    "agile coach",
+    "product owner",
+    "product manager",         # tech product manager ≠ project manager
+    "release manager",
+    "platform engineer",
+    "site reliability",
+    "sre",
+    "infrastructure engineer",
+    "systems engineer",        # usually IT systems, not mech systems
+    "solutions architect",
+    "technical architect",
+    "enterprise architect",
+    "data scientist",
+    "data analyst",
+    "machine learning",
+    "ai engineer",
+    "ux designer",
+    "ui designer",
+    "qa engineer",             # software QA
+    "test engineer",           # software testing (≠ commissioning test eng)
+    "automation engineer",     # usually RPA/software; NOT factory automation
+    "business analyst",
+
+    # --- NEW (A3): HR / Admin / Commercial ---
+    "hr manager",
+    "human resources",
+    "recruitment manager",
+    "recruitment consultant",
+    "talent acquisition",
+    "office manager",
+    "operations manager",      # too generic without mech context
+    "facilities manager",      # FM ≠ PM
+    "account manager",
+    "sales manager",
+    "business development manager",
+    "bdm",
+    "marketing manager",
+    "communications manager",
+    "finance manager",
+    "financial controller",
+    "quantity surveyor",       # QS ≠ PM (construction but different discipline)
+    "estimator",               # commercial role, not PM
+
+    # --- NEW (A3): Healthcare / Life Sciences ---
+    "clinical project manager",
+    "pharmaceutical",
+    "pharma",
+    "biotech",
+    "medical device",          # debatable — some are mech-eng; reject for now
+    "clinical trial",
 ]
 
 # Pre-compiled word-boundary patterns for DISQUALIFY_PHRASES.
