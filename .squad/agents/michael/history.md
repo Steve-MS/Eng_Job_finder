@@ -301,3 +301,130 @@ Probe RSS endpoints: `https://jobs.theengineer.co.uk/rss`, `/feed`, `/rss.xml`. 
 - No regressions — existing tests unaffected (disabled source skipped by orchestrator).
 - Test count unchanged: **138 passed, 25 skipped** at time of commit.
 
+---
+
+## 2026-06-15: Energy Jobline Adapter Calibration
+
+**Task:** Calibrate `energy_jobline.py` against the live site and add fixture regression test.
+
+### Site structure (confirmed 2026-06-15)
+
+| Field | CSS / regex | Notes |
+|---|---|---|
+| Card | `article.node--job-per-template` | Drupal node; class includes `node-job` variants |
+| ID | regex `node-(\d+)` on article `id` attr | Drupal NID, always numeric |
+| Title | `h2.node__title a` text | Absolute `href` also gives URL |
+| URL | `h2.node__title a` `href` | Always absolute — no `urljoin` needed (kept as safe fallback) |
+| Employer | `.recruiter-company-profile-job-organization a` | Inside `.description` div |
+| Location | `.location span` | Optional — absent on ~40% of search cards |
+| Date | `.date` text → strip trailing `,` | **US format MM/DD/YYYY** (`06/15/2026`). Old adapter had `%d/%m/%Y` which silently failed. |
+| Salary | *(not in search cards)* | Always `None` for search results |
+| Contract type | hardcoded `"contract"` | Baked into search URL `&contract_type=contract` |
+
+### Key bug fixed: date format was wrong
+
+Old adapter used `%d/%m/%Y` — this fails for US-formatted dates like `06/15/2026` (month 15 = ValueError → `posted_at = None` for every listing). Fixed by adding `%m/%d/%Y` as primary slash-format before the legacy `%d/%m/%Y`.
+
+### Key bug fixed: pagination was off-by-one
+
+Old adapter built `&page=2` for the second page. EJL uses 0-based pagination: second page → `&page=1`, third → `&page=2`. Fixed to `&page={page_num - 1}`.
+
+### Anti-bot: none
+
+Plain HTTP with browser User-Agent headers returns HTTP 200. No Cloudflare, no JS rendering required. `Crawl-delay: 10` respected between page fetches.
+
+### `_parse_html()` extracted for testability
+
+Moved parse logic out of `_fetch_page()` into a standalone `_parse_html(html, page_url)` function. Tests call it directly without making network requests.
+
+### Live results (2026-06-15T09:59Z)
+
+- 5 pages fetched (pages 1–5), 20 listings/page = **100 listings total**
+- All 5 HTTP requests returned 200 OK
+- Field population: title 100%, id 100%, employer 100%, url 100%, posted_at 100%, location_raw ~60%
+- Pagination URL sequence confirmed correct:
+  ```
+  page 1: /jobs?keywords=...&contract_type=contract
+  page 2: /jobs?keywords=...&contract_type=contract&page=1
+  page 3: /jobs?keywords=...&contract_type=contract&page=2
+  ...
+  ```
+
+### Tests (2026-06-15)
+
+- **15 new tests** in `tests/adapters/test_energy_jobline.py`
+- Full suite: **153 passed, 25 skipped, 0 failed** (baseline 138 + 15 new)
+
+### Note on result relevance
+
+Search `keywords=project+manager+mechanical&contract_type=contract` returns broadly-matched results — today's page 1 was dominated by Iberdrola Renewables engineering roles (not PM titles). Ada's domain + title filters will handle relevance. The 6 listings that passed the full pipeline filter were genuine matches. Volume is sufficient (100 raw/run); precision is Ada's concern, not mine.
+
+---
+
+## 2026-06-15: Aviation Job Search Adapter Calibration
+
+**Task:** Calibrate `aviation_job_search.py` — live smoke returned HTTP 200 but 0/13 selectors matched.
+
+### Root cause: fully client-side rendered application
+
+The original adapter assumed listings appear in static HTML (CSS-selector strategy). Live recon confirmed this is entirely wrong:
+
+- Search results page (`/en-GB/jobs?...`) embeds `AppData.is_ssr = false` — all listings are loaded via an internal AJAX call to `/api/v1/jobs`
+- The `#searchResults` div is empty (`d-none`) in the static HTML response
+- **`/api/v1/jobs` is explicitly `Disallow`-ed in robots.txt** — cannot call it directly
+
+### Strategy chosen: Sitemap + schema.org/JobPosting LD+JSON
+
+| Step | Detail |
+|---|---|
+| 1 | Fetch `https://www.aviationjobsearch.com/en-GB/sitemap/jobs.xml` (publicly listed in robots.txt) |
+| 2 | Filter URLs by `/management/` path OR PM-keyword in title slug (`project-manag`, `programme-manag`, `project-lead`, `project-coord`) |
+| 3 | Fetch each matched job-detail page (SSR — confirmed 200 in static HTTP) |
+| 4 | Parse `schema.org/JobPosting` LD+JSON block from each page |
+| 5 | Map to `RawListing` |
+
+### Why this works
+
+Individual job-detail pages (`/jobs/{cat}/{sub}/{title-id}`) ARE server-side rendered. Each contains a `<script type="application/ld+json">` block with a `{"@type": "JobPosting"}` dict containing all required fields.
+
+### Confirmed LD+JSON field map (2026-06-15)
+
+| RawListing field | JSON key | Notes |
+|---|---|---|
+| `title` | `title` | flat string |
+| `source_listing_id` | trailing `-NNN` in URL slug | e.g. `engineering-project-manager-by-jmc-...-607645` → `607645` |
+| `employer` | `hiringOrganization.name` | always populated |
+| `location_raw` | `jobLocation.address.{locality, region, country}` | joined with `", "` |
+| `posted_at` | `datePosted` | ISO date `"YYYY-MM-DD"` |
+| `contract_type_raw` | `employmentType` | `"FULL_TIME"`, `"CONTRACTOR"`, etc. |
+| `description_raw` | `description` | full HTML description string |
+| `salary_raw` | `baseSalary` (rarely set) | schema.org MonetaryAmount — almost never present on this board |
+| `metadata["valid_through"]` | `validThrough` | expiry date |
+| `metadata["org_id"]` | `identifier.value` | employer's org ID (not job ID) |
+| `metadata["aggregator"]` | hardcoded `True` | board aggregates employer ATS feeds |
+
+### Critical bug found: Brotli encoding not handled by httpx
+
+When `Accept-Encoding: gzip, deflate, br` is sent (it was in `_BROWSER_HEADERS`), the server prefers **Brotli** (`Content-Encoding: br`). httpx does not have a built-in Brotli decoder. The sitemap returned 7,453 garbled bytes instead of 60,671 readable XML bytes. `_SITEMAP_RE.finditer()` found 0 matches → 0 URLs → 0 listings.
+
+**Fix:** Removed `br` from `Accept-Encoding`; now uses `"gzip, deflate"` only. httpx auto-decompresses both.
+
+**General rule:** Never include `br` in `Accept-Encoding` when using httpx without the optional `brotli` PyPI package installed.
+
+### Live results (2026-06-15T10:09Z)
+
+- Sitemap: 297 total jobs, **6 matched** (all `/management/` category)
+- All 6 HTTP requests returned 200 OK; LD+JSON parsed on all 6
+- 6 listings returned by `fetch()`; **6 stored** in pipeline run
+- Field population: title 100%, employer 100%, location_raw 100%, url 100%, posted_at 100%
+
+### Volume note
+
+This is a specialist aviation board. 297 total active listings; 6 management roles is the correct universe today. Volume will fluctuate with the sitemap update cycle (daily). Ada's filters will handle relevance; low volume here is expected and appropriate.
+
+### Tests (2026-06-15)
+
+- **12 new tests** in `tests/adapters/test_aviation_job_search.py`
+- 2 additional smoke tests now pass (`test_adapter_module_importable`, `test_adapter_has_required_interface`)
+- Full suite: **181 passed, 25 skipped, 0 failed** (baseline before this sprint: 153)
+
