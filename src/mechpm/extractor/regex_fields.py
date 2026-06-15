@@ -161,12 +161,15 @@ _MONTH_MAP: dict[str, int] = {
 # example: "Dubai, United Arab Emirates" → country="AE"
 # example: "Riyadh, Saudi Arabia"        → country="SA"
 # example: "MENA Region"                 → country="AE"
+# example: "Cairo, Cairo Governorate, Egypt" → country="EG"
 _NON_UK_MAP: list[tuple[re.Pattern, str]] = [
     # Gulf / Middle East / MENA regional markers
     (re.compile(r"\b(mena|middle\s+east)\b", re.IGNORECASE), "AE"),
     (re.compile(r"\b(dubai|abu\s+dhabi|uae|united\s+arab\s+emirates)\b", re.IGNORECASE), "AE"),
     (re.compile(r"\b(saudi\s+arabia|riyadh|jeddah|ksa)\b", re.IGNORECASE), "SA"),
     (re.compile(r"\b(qatar|doha)\b", re.IGNORECASE), "QA"),
+    # Africa
+    (re.compile(r"\b(egypt|cairo|alexandria)\b", re.IGNORECASE), "EG"),
     # Europe
     (re.compile(r"\b(dublin|ireland|republic\s+of\s+ireland)\b", re.IGNORECASE), "IE"),
     (re.compile(r"\b(netherlands|amsterdam|rotterdam)\b", re.IGNORECASE), "NL"),

@@ -18,6 +18,10 @@ import re
 from mechpm.extractor.regex_fields import _NON_UK_MAP
 from mechpm.models import NormalizedListing
 
+# Frozenset of every ISO code that _NON_UK_MAP can produce.
+# Used by passes_uk to distinguish "definitely non-UK" from "unknown country".
+_KNOWN_NON_UK_CODES: frozenset[str] = frozenset(code for _, code in _NON_UK_MAP)
+
 # ---------------------------------------------------------------------------
 # PM role detection
 # ---------------------------------------------------------------------------
@@ -192,31 +196,39 @@ def passes_contract(listing: NormalizedListing) -> bool:
 def passes_uk(listing: NormalizedListing) -> bool:
     """True only for listings based in the UK.
 
-    Decision logic:
-    1. country != "GB" (set by extractor from location field) → reject immediately.
-    2. location present and country == "GB" → confirmed UK → pass.
-    3. location absent, country defaulted to "GB" → corroborate via title/description:
-       a. Non-UK geo signal found in title or description → reject.
-       b. No geo signal found anywhere → default-reject; tag listing with
-          'country_unknown_assumed_non_uk' so the reporter routes it to Review Queue.
+    Decision logic — three mutually exclusive cases:
+    1. country is a known non-UK code (EG, US, AE, …) → hard-reject; no flag,
+       no Review Queue.  The extractor has positive evidence this is not UK.
+    2. country == "GB" and location present → confirmed UK → pass.
+    3. country == "GB" and location absent (defaulted):
+       a. Non-UK geo signal found in title or description → hard-reject; no flag.
+       b. No geo signal found anywhere → unknown country → soft-reject; append
+          'country_unknown_assumed_non_uk' flag so the reporter routes to Review Queue.
 
     Conservative: unknown country is rejected, never silently assumed UK.
+    The sanity flag is ONLY added in case 3b — never when a definitive non-UK
+    code or geo signal is present.
     """
+    # Case 1: positive evidence of a non-UK country → hard-reject, no flag
+    if listing.country in _KNOWN_NON_UK_CODES:
+        return False
+
+    # Safety net: any unexpected non-GB code → hard-reject, no flag
     if listing.country != "GB":
         return False
 
-    # Location was provided and confirmed UK by the extractor
+    # Case 2: country is GB and location was provided → confirmed UK
     if listing.location.strip():
         return True
 
-    # Location empty: country defaulted to "GB" but unconfirmed.
+    # Case 3: country defaulted to GB because location was absent.
     # Corroborate via title then description_raw.
     for text in (listing.title or "", listing.description_raw or ""):
         for pattern, _ in _NON_UK_MAP:
             if pattern.search(text):
-                return False
+                return False  # Case 3a: non-UK geo signal → hard-reject, no flag
 
-    # No geo signal at all → unknown country → default-reject, route to Review Queue
+    # Case 3b: no geo signal at all → unknown country → soft-reject, Review Queue
     flag = "country_unknown_assumed_non_uk"
     if flag not in listing.sanity_flags:
         listing.sanity_flags.append(flag)

@@ -206,7 +206,7 @@ def test_gold_set_fixture_counts():
         )
 
     assert counts["positive"] == 9, f"Expected 9 positives, got {counts['positive']}"
-    assert counts["negative"] == 11, f"Expected 11 negatives, got {counts['negative']}"
+    assert counts["negative"] == 14, f"Expected 14 negatives, got {counts['negative']}"
     assert counts["edge_cases"] == 7, f"Expected 7 edge cases, got {counts['edge_cases']}"
     assert counts["duplicate_pairs"] == 6, (
         f"Expected 6 dup-pair files (3 pairs × 2), got {counts['duplicate_pairs']}"
@@ -343,4 +343,72 @@ def test_detect_country_location_takes_priority():
     assert detect_country("London, UK", title="Dubai Office") == "GB"
     # Non-UK location wins
     assert detect_country("Dubai, UAE", title="Manchester office") == "AE"
+
+
+# ---------------------------------------------------------------------------
+# Hard-reject tests for explicitly known non-UK countries (2026-06-15)
+# ---------------------------------------------------------------------------
+
+@_SKIP
+def test_passes_uk_cairo_egypt_hard_rejected_no_flag():
+    """Cairo, Egypt explicit location → hard-reject via _KNOWN_NON_UK_CODES, NO sanity flag."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="railwaypeople",
+        title="Project Manager (High Speed Rail) - Egypt",
+        location="Cairo, Cairo Governorate, Egypt",
+        country="EG",
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" not in listing.sanity_flags
+
+
+@_SKIP
+def test_passes_uk_new_york_usa_hard_rejected_no_flag():
+    """New York, USA explicit location → hard-reject via _KNOWN_NON_UK_CODES, NO sanity flag."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="totaljobs",
+        title="Project Manager - Mechanical Systems",
+        location="New York, NY, USA",
+        country="US",
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" not in listing.sanity_flags
+
+
+@_SKIP
+def test_passes_uk_dubai_uae_hard_rejected_no_flag():
+    """Dubai, UAE explicit location → hard-reject via _KNOWN_NON_UK_CODES, NO sanity flag."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_uk
+
+    listing = NormalizedListing(
+        source="totaljobs",
+        title="Project Manager - Mechanical Construction",
+        location="Dubai, UAE",
+        country="AE",
+        contract_type="contract",
+    )
+    result = passes_uk(listing)
+    assert result is False
+    assert "country_unknown_assumed_non_uk" not in listing.sanity_flags
+
+
+@_SKIP
+def test_detect_country_egypt_from_location():
+    """detect_country returns 'EG' for an explicit Cairo/Egypt location string."""
+    from mechpm.extractor.regex_fields import detect_country
+
+    assert detect_country("Cairo, Cairo Governorate, Egypt") == "EG"
+    assert detect_country("Alexandria, Egypt") == "EG"
+    assert detect_country("Cairo") == "EG"
 

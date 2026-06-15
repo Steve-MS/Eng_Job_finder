@@ -183,3 +183,51 @@ Re-ran `mechpm.cli run-all --skip-fetch` against existing data. "MENA Region" li
 - Sanity flag `"country_unknown_assumed_non_uk"` hooks into the existing `sanity_flags: list[str]` field on the model (Polly-owned infrastructure). No new schema changes.
 - The `detect_country` optional params are available for future pipeline updates when title/description are passed at extraction time; the filter's secondary scan provides coverage in the meantime.
 - Decision logged at `.squad/decisions/inbox/ada-uk-filter-strengthening.md`.
+
+---
+
+## 2026-06-15: Hard-Reject Known Non-UK Countries (No Review Queue)
+
+### Problem
+A listing *"ewi Recruitment — Project Manager (High Speed Rail) - MENA Region"* with explicit location `"Cairo, Cairo Governorate, Egypt"` appeared in the Review Queue of the 2026-06-15 live report. The previous filter only hard-rejected non-UK countries when `detect_country` returned a non-"GB" code — but Egypt was not in `_NON_UK_MAP`, so `detect_country("Cairo, Cairo Governorate, Egypt")` fell through to the "location present, no match → confirmed UK" branch and returned "GB". The UK filter then passed the listing (location present + country GB). It appeared in Review Queue only because of a "Day rate missing" sanity flag, not because the UK filter rejected it.
+
+### Root cause
+`_NON_UK_MAP` in `regex_fields.py` was missing an entry for Egypt/Cairo. Any listing with an explicit Egyptian location was silently treated as confirmed UK.
+
+### Changes delivered
+
+#### `regex_fields.py`
+- Added Africa section to `_NON_UK_MAP`: `\b(egypt|cairo|alexandria)\b` → `"EG"`.
+- Added `# example: "Cairo, Cairo Governorate, Egypt" → country="EG"` to module docstring.
+
+#### `filters.py`
+- Added `_KNOWN_NON_UK_CODES: frozenset[str]` computed from `_NON_UK_MAP` at module level.
+- Rewrote `passes_uk` with three explicit cases:
+  1. `country in _KNOWN_NON_UK_CODES` → hard-reject, **no flag**.
+  2. `country == "GB"` and `location.strip()` → pass (confirmed UK).
+  3. `country == "GB"` and no location → scan title/desc:
+     - Non-UK signal found → hard-reject, no flag.
+     - No signal → soft-reject + `country_unknown_assumed_non_uk` flag (Review Queue).
+- Added safety net: any non-GB code not in `_KNOWN_NON_UK_CODES` → hard-reject, no flag.
+- The sanity-flag path is now **only** reachable in case 3 (genuinely unknown) — never when positive non-UK evidence exists.
+
+### Gold-set additions (3 new negative fixtures)
+| File | Location | Expected country | Fail filter |
+|------|----------|-----------------|-------------|
+| `non_uk_cairo_explicit` | Cairo, Cairo Governorate, Egypt | EG | uk_filter |
+| `non_uk_us_explicit` | New York, NY, USA | US | uk_filter |
+| `non_uk_uae_explicit` | Dubai, UAE | AE | uk_filter |
+
+### Test results
+- Baseline: 128 passed → Post-change: 138 passed (+10; requirement was ≥ 131).
+- 4 new dedicated unit tests: hard-reject for EG/US/AE, plus `detect_country` Egypt assertion.
+- 0 failures.
+
+### Live verification
+- Deleted stale Cairo DB entry (was inserted before the filter fix).
+- Re-ran `mechpm.cli run-all --skip-fetch`. 0 hits for "Cairo" or "Egypt" in `reports/2026-06-15.md`.
+
+### Design notes
+- `_KNOWN_NON_UK_CODES` is derived directly from `_NON_UK_MAP` at import time; adding a new country to the map automatically extends both detection and hard-reject coverage.
+- The "soft-reject / Review Queue" path is now reserved exclusively for genuinely indeterminate listings (no location, no title/desc geo signal). All positively-identified non-UK listings are silently dropped.
+- Decision logged at `.squad/decisions/inbox/ada-hard-reject-non-uk.md`.
