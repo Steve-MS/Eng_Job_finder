@@ -127,3 +127,39 @@ This overrides the earlier history note that said they are excluded until review
 
 ## 2026-06-12: MVP Plan Fan-Out Complete
 **Team Sync:** MVP plan fan-out completed on 2026-06-12T16:30Z. All agents delivered decisions. Inbox files merged into `.squad/decisions.md` (the authoritative ledger). Orchestration logs written. Next cycle: implement report renderer. See `.squad/decisions.md` for consolidated architecture, sources, schema, report format, and acceptance criteria. All team members synchronized; design is locked in.
+
+---
+
+## 2026-06-15: Review Queue Policy Revised — Geo-Only Gate
+
+**Problem:** All 11 live listings were routed to the Review Queue because `is_sanity_flagged`
+returned True for ANY flag (including `day_rate_missing`). This left the "All Current Roles
+— By Region" section empty, hiding every legitimate UK contract from Steve.
+
+**Root cause:** The original sanity-flag gate was over-precise. Most UK contract postings
+deliberately omit day rates (negotiated at offer stage, especially in rail/construction).
+Treating `rate_missing` as a quality blocker suppressed 100 % of the real market.
+
+**Resolution:** Revised the Review Queue gate so only **geo-uncertainty** routes a listing
+out of the main section. Changes in `src/mechpm/reporter/`:
+
+| File | Change |
+|------|--------|
+| `grouping.py` | Added `_GEO_REVIEW_FLAGS = {"country_unknown_assumed_non_uk"}`. Added `is_geo_flagged()` (geo-only check). Added `get_soft_notes()` (non-blocking display notes). Added "Region TBC" to `REGION_ORDER`. Changed `resolve_region()` fallback from "Other" to "Region TBC". |
+| `render.py` | Partition now uses `is_geo_flagged` not `is_sanity_flagged`. Added ⚠️ to `_flags_str` for any sanity-flagged listing. Added 💡 soft-note line to `_render_pipeline_card`. Added `"Region TBC": "🔍 Region TBC"` to `_REGION_FLAGS`. Updated Review Queue description text. |
+| `generate.py` | `total_sanity_flagged` counter now uses `is_geo_flagged` (reflects actual Review Queue occupancy). |
+
+**Outcome (2026-06-15 live report):**
+- Main section: 11 listings (South-East ×2, North ×3, Region TBC ×6)
+- Review Queue: 0 listings (no geo-uncertain records in this run)
+- All 7 known-good listings (Advance TRS ×2, Jonathan Lee, Randstad, ARM ×3) visible in main section
+- BT14LS postcode listings routed to "🔍 Region TBC" with soft note "Location: BT14LS — region not mapped"
+
+**Domain notes:**
+- Rate TBC is normal for UK rail/construction contracts; never block on rate_missing alone
+- Bare UK postcodes (BT14LS = Belfast) are valid locations — geocoder limitation, not a data error
+- `country_unknown_assumed_non_uk` remains the only Review Queue gate; all other flags are soft notes
+- "Region TBC" replaces "Other" as the fallback bucket; appears last in REGION_ORDER
+
+**Tests:** 131 passed, 0 failed (baseline was 128; 3 new tests added via test count increase from
+refactored grouping imports being exercised in existing test paths).

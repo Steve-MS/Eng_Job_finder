@@ -23,7 +23,9 @@ from mechpm.reporter.domain import rate_context
 from mechpm.reporter.grouping import (
     REGION_ORDER,
     get_sanity_reasons,
+    get_soft_notes,
     group_by_region,
+    is_geo_flagged,
     is_premium,
     is_sanity_flagged,
     is_urgent,
@@ -52,6 +54,7 @@ _REGION_FLAGS: dict[str, str] = {
     "Wales":      "🏴󠁧󠁢󠁷󠁬󠁳󠁿 Wales",
     "Remote":     "🌐 Remote / UK-Wide",
     "Other":      "🇬🇧 Other UK",
+    "Region TBC": "🔍 Region TBC",
 }
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,8 @@ def _flags_str(listing: NormalizedListing, today: date) -> str:
         parts.append("⚡")
     if is_premium(listing):
         parts.append("💰")
+    if is_sanity_flagged(listing, today):
+        parts.append("⚠️")
     return " ".join(parts)
 
 
@@ -295,6 +300,9 @@ def _render_pipeline_card(listing: NormalizedListing, today: date) -> list[str]:
     if listing.description_clean:
         summary = _md_escape(_truncate(listing.description_clean, _SUMMARY_COMPACT_CHARS))
         lines.append(f"- **Summary:** {summary}")
+    soft_notes = get_soft_notes(listing)
+    if soft_notes:
+        lines.append(f"- 💡 {'; '.join(soft_notes)}")
     lines.append(f"- {_source_links(listing)}")
     lines.append("")
     return lines
@@ -512,8 +520,9 @@ def _render_review_queue(
     lines: list[str] = [
         f"## ⚠️ Review Queue ({len(flagged_listings)} role{'s' if len(flagged_listings) != 1 else ''})",
         "",
-        "*These listings triggered automated sanity rules and are held for review."
-        " They will not appear in the pipeline sections above until cleared.*",
+        "*These listings carry a geographic-uncertainty flag and require manual review."
+        " Rate-missing and unrecognised-location roles appear in the main section above"
+        " with a 💡 soft note — consistent with UK contract market norms.*",
         "",
     ]
     for listing in flagged_listings:
@@ -588,10 +597,12 @@ def render_weekly(
     """
     today = run_metadata.date_range_end
 
-    # Partition: flagged listings go to review queue; clean listings go to all
-    # other sections.  A listing can only be in one partition — no duplication.
-    flagged = [l for l in listings if is_sanity_flagged(l, today)]
-    clean = [l for l in listings if not is_sanity_flagged(l, today)]
+    # Partition: only geo-uncertain listings go to the Review Queue.
+    # Rate-missing and location-vague observations are soft notes in the main
+    # sections — consistent with UK contract market norms (most roles negotiate
+    # rate at offer stage; bare postcodes are perfectly valid UK locations).
+    flagged = [l for l in listings if is_geo_flagged(l)]
+    clean = [l for l in listings if not is_geo_flagged(l)]
 
     new_listings = [l for l in clean if l.is_new_listing]
     urgent_listings = [l for l in clean if is_urgent(l, today)]

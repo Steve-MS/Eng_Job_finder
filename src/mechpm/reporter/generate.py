@@ -17,7 +17,7 @@ import logging
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from mechpm.reporter.grouping import is_sanity_flagged, is_urgent
+from mechpm.reporter.grouping import is_geo_flagged, is_sanity_flagged, is_urgent
 from mechpm.reporter.models import RunMetadata
 from mechpm.reporter.render import render_weekly
 from mechpm.storage.sqlite import Repo
@@ -82,7 +82,7 @@ def generate_report(
         total_after_dedup=len(listings),
         total_new=sum(1 for l in listings if l.is_new_listing),
         total_urgent=sum(1 for l in listings if is_urgent(l, today)),
-        total_sanity_flagged=sum(1 for l in listings if is_sanity_flagged(l, today)),
+        total_sanity_flagged=sum(1 for l in listings if is_geo_flagged(l)),
     )
 
     output_path = Path(reports_dir) / f"{date_str}.md"

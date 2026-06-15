@@ -1,12 +1,19 @@
 """Region grouping and per-listing flag helpers.
 
-The 8 canonical region buckets are:
+The 9 canonical region buckets are:
     London / South-East / Midlands / North / Scotland / Wales / Remote / Other
+    / Region TBC
 
 NOTE on South-West: No dedicated South-West bucket exists in the 8-region
 scheme.  Bristol, Swindon, Bath, Exeter, and other South-West cities are
 mapped to "South-East" — the nearest broad southern region — and this is
 documented in Polly's history.md.
+
+Review Queue policy (2026-06-15):
+    Only geo-uncertainty flags route a listing to the Review Queue.  All other
+    observations (rate missing, unrecognised postcode, etc.) are soft notes
+    displayed inline in the main report — consistent with UK contract market
+    norms where most roles negotiate rate at offer stage.
 
 Dedup safety: ``group_by_region`` maps every listing to *exactly one* bucket
 via ``resolve_region``, so a listing can never bleed into multiple region
@@ -20,6 +27,14 @@ from datetime import date
 from mechpm.models import NormalizedListing
 
 # ---------------------------------------------------------------------------
+# Geo-flag identifiers — only these route a listing to the Review Queue.
+# All other sanity observations become soft inline notes in the main section.
+# ---------------------------------------------------------------------------
+_GEO_REVIEW_FLAGS: frozenset[str] = frozenset({
+    "country_unknown_assumed_non_uk",
+})
+
+# ---------------------------------------------------------------------------
 # Region ordering (controls section order in the report)
 # ---------------------------------------------------------------------------
 REGION_ORDER: list[str] = [
@@ -31,6 +46,7 @@ REGION_ORDER: list[str] = [
     "Wales",
     "Remote",
     "Other",
+    "Region TBC",
 ]
 
 # ---------------------------------------------------------------------------
@@ -116,13 +132,19 @@ _REGION_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
 
 
 def resolve_region(location_normalized: str) -> str:
-    """Map a normalised location string to one of the 8 canonical region buckets."""
-    loc = location_normalized.lower()
+    """Map a normalised location string to one of the 9 canonical region buckets.
+
+    Returns "Region TBC" when the location is empty, a bare postcode, or
+    otherwise does not match any known UK region keyword.
+    """
+    loc = location_normalized.lower().strip()
+    if not loc:
+        return "Region TBC"
     for keywords, region in _REGION_KEYWORDS:
         for kw in keywords:
             if kw in loc:
                 return region
-    return "Other"
+    return "Region TBC"
 
 
 def group_by_region(
@@ -140,6 +162,37 @@ def group_by_region(
 
     # Return in canonical order, skipping empty regions.
     return {r: buckets[r] for r in REGION_ORDER if buckets[r]}
+
+
+def is_geo_flagged(listing: NormalizedListing) -> bool:
+    """Return True if the listing carries a geo-uncertainty flag.
+
+    Only geo-flagged listings are routed to the Review Queue.  Other sanity
+    observations (missing rate, unrecognised postcode, etc.) are soft inline
+    notes displayed in the main section.
+    """
+    return any(f in _GEO_REVIEW_FLAGS for f in listing.sanity_flags)
+
+
+def get_soft_notes(listing: NormalizedListing) -> list[str]:
+    """Return non-blocking soft-note strings for display in the main section.
+
+    Covers observations that are normal in the UK contract market (rate
+    negotiated at offer stage, bare postcode not in the region map) and
+    should not suppress the listing from the main report.
+    """
+    notes: list[str] = []
+    if listing.day_rate_min is None and listing.day_rate_max is None:
+        notes.append(
+            "Rate: TBC — typical for UK contract market (negotiate at offer stage)"
+        )
+    if not listing.location_normalized.strip():
+        raw = (listing.location or "").strip()
+        if raw:
+            notes.append(f"Location: {raw} — region not mapped")
+        else:
+            notes.append("Location not stated — routed to Region TBC")
+    return notes
 
 
 # ---------------------------------------------------------------------------
