@@ -250,5 +250,85 @@ No new CLI flag needed; HTML is always co-generated alongside Markdown via the s
 
 **Live report:** `reports/2026-06-15.html` — 146KB, 44 role cards, 45 unique clickable links.
 
-**Tests:** 398 → 412 passed (+14), 25 skipped, 0 failures.
-Commit: `feat(reporter): add HTML report renderer with clickable role links`
+## 2026-06-16: Source Filter Bar (Steve request)
+
+**Request:** Steve asked for filter controls on the HTML report to show/hide cards by source.
+
+**Changes made:**
+
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/html_render.py` | Added `_SOURCE_DISPLAY_NAMES` map, `_source_id()` + `_source_display_name()` helpers, `_render_filter_bar()`, `_FILTER_JS` constant, CSS additions for filter bar and pills, `data-source` attribute on every `<article>` card, filter bar injection in `render_weekly_html()` body_parts |
+| `tests/test_html_report.py` | +3 tests: `test_every_card_has_data_source_attribute`, `test_filter_bar_lists_all_unique_sources`, `test_filter_script_block_present` |
+| `reports/2026-06-16.html` | Re-rendered live report with 39 listings and 5 source filter buttons |
+
+**Filter bar appearance (2026-06-16 live report):**
+```
+Filter by source:  [All]  [Reed (28)]  [Adzuna (6)]  [Aviation Job Search (2)]  [RailwayPeople (2)]  [Energy Jobline (1)]
+                                                                           Showing all 39 listings
+```
+Pills are pill-shaped (border-radius: 9999px). Active state: each source has a distinct accent colour (Reed=blue, Adzuna=green, Energy Jobline=amber, RailwayPeople=teal, Aviation Job Search=purple). Inactive state: greyed out at 38% opacity. The "All" button resets all sources to active.
+
+**Technical notes:**
+- `data-source="reed"` (kebab-case) on every `<article class="role-card">` — underscores in source IDs are converted to hyphens
+- Filter bar hidden via `style="display:none"` until JS runs — progressive enhancement, fully readable without JS
+- Vanilla JS embeds ~1.6 KB; filter CSS adds ~1.3 KB — **total: ~2.9 KB** (well under 5 KB budget)
+- 78 `data-source` attributes on cards (39 listings × ~2 sections average; same listing can appear in New, Premium, Urgent, and Pipeline sections)
+
+**Test delta:** 450 → 453 collected, 425 → 428 passed (25 skipped unchanged, 0 failures)
+
+**Commit:** `feat(reporter): add source filter bar to HTML report`
+
+---
+
+## 2026-06-16: Region Filter Bar + Next-Report Date Bug Fix
+
+### Task 1 — Region Filter Bar
+
+**Request:** Steve asked for a second filter bar below the source filter so
+listings can be sliced by geographic region.
+
+**Changes:**
+
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/html_render.py` | Added `resolve_region` import; `_REGION_ID_TO_DISPLAY` lookup map; `_region_id()` helper (kebab-case region from `location_normalized`); `_render_region_filter_bar()` function; CSS for 9 region button colours; `data-region` attribute on every `<article class="role-card">`; `_FILTER_JS` rewritten for source × region AND filter; region filter bar injected into `render_weekly_html()` body_parts |
+| `tests/test_html_report.py` | +4 tests: `test_every_card_has_data_region_attribute`, `test_region_filter_bar_lists_expected_regions`, `test_region_filter_js_present`, `test_card_has_both_source_and_region_attributes` |
+
+**Region filter appearance (2026-06-16 live report):**
+```
+Filter by region:  [All]  [London (6)]  [South-East (12)]  [Midlands (3)]  [North (2)]  [Region TBC (16)]
+```
+
+**Technical notes:**
+- `data-region="midlands"` (kebab-case) on every `<article class="role-card">` — uses `resolve_region(listing.location_normalized or "")` from `grouping.py`
+- Filters are **combinable**: source AND region. JS `applyFilter()` shows a card only when `activeSrc.has(card.dataset.source) && activeRgn.has(card.dataset.region)`
+- Region buttons appear in canonical `REGION_ORDER` (London → South-East → Midlands → North → Scotland → Wales → Remote → Other → Region TBC)
+- Progressive enhancement: both bars hidden via `style="display:none"` until JS runs; no JS → all cards visible
+
+### Task 2 — Next-Report Date Bug Fix
+
+**Bug:** Footer showed "Next Report: Friday, 23 June 2026" on a Tuesday run (June 16).
+Root cause: both renderers used `date_range_end + timedelta(days=7)` — blindly adds 7 days to the report window end, not to today.
+
+**Fix:**
+
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/render.py` | Added `timedelta` to top-level import; added `_next_friday_from(today: date) -> date` helper; fixed `_render_footer()` to use `date.today()` + `_next_friday_from()` |
+| `src/mechpm/reporter/html_render.py` | Imported `_next_friday_from` from `render`; fixed `_render_html_footer()` same way |
+| `tests/test_next_report_date.py` | New file — 9 tests covering all 7 days of week + Friday-skips-one-week invariant + always-in-future invariant |
+
+**Formula:**
+```python
+days_until_friday = (4 - today.weekday()) % 7  # Friday = weekday 4
+if days_until_friday == 0:
+    days_until_friday = 7  # if today IS Friday → next run next Friday
+next_report = today + timedelta(days=days_until_friday)
+```
+
+**Result on 2026-06-16 (Tuesday):** Footer now reads "Next Report: Friday, 19 June 2026" ✅
+
+**Test delta:** 428 → 441 passed (+13 new), 25 skipped unchanged, 0 failures.
+
+**Commit:** `feat(reporter): add region filter bar + fix next-report date` (f640e65)
