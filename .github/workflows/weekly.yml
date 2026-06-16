@@ -60,7 +60,7 @@ jobs:
           git add -f data/mechpm.sqlite
           git diff --cached --quiet && echo "No changes to commit" || \
             (git commit -m "chore: weekly report $(date -u +%Y-%m-%d)" && \
-             git pull --rebase origin main && \
+             git pull --rebase --autostash origin main && \
              git push)
 
       - name: Configure Pages
