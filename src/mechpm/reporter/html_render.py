@@ -34,11 +34,13 @@ from mechpm.reporter.grouping import (
     is_premium,
     is_sanity_flagged,
     is_urgent,
+    resolve_region,
 )
 from mechpm.reporter.models import RunMetadata
 from mechpm.reporter.render import (
     _classify_seniority,
     _duration_str,
+    _next_friday_from,
     _rate_str,
     _source_name_from_url,
     _start_str_safe,
@@ -429,6 +431,18 @@ footer strong { color: var(--text); }
 .filter-btn[data-src="aviation-job-search"].active { background:#f3e8ff; color:#7e22ce; border-color:#7e22ce; }
 .filter-btn-all.active { background:#f1f5f9; color:var(--text); border-color:#374151; opacity:1; }
 .filter-count-label { font-size: 12px; color: var(--muted); margin-left: auto; font-style: italic; }
+
+/* ---- Region filter bar ---- */
+#region-filter-bar { margin-top: -12px; }
+.filter-btn[data-rgn="london"].active     { background:#dbeafe; color:#1d4ed8; border-color:#1d4ed8; }
+.filter-btn[data-rgn="south-east"].active { background:#ccfbf1; color:#0f766e; border-color:#0f766e; }
+.filter-btn[data-rgn="midlands"].active   { background:#dcfce7; color:#15803d; border-color:#15803d; }
+.filter-btn[data-rgn="north"].active      { background:#ffedd5; color:#c2410c; border-color:#c2410c; }
+.filter-btn[data-rgn="scotland"].active   { background:#f3e8ff; color:#6b21a8; border-color:#6b21a8; }
+.filter-btn[data-rgn="wales"].active      { background:#fee2e2; color:#b91c1c; border-color:#b91c1c; }
+.filter-btn[data-rgn="remote"].active     { background:#e0e7ff; color:#4338ca; border-color:#4338ca; }
+.filter-btn[data-rgn="other"].active      { background:#f1f5f9; color:#374151; border-color:#374151; }
+.filter-btn[data-rgn="region-tbc"].active { background:#f1f5f9; color:#374151; border-color:#374151; }
 """
 
 # ---------------------------------------------------------------------------
@@ -473,6 +487,21 @@ def _source_id(listing: NormalizedListing) -> str:
 
 def _source_display_name(sid: str) -> str:
     return _SOURCE_DISPLAY_NAMES.get(sid, sid.replace("-", " ").title())
+
+
+# ---------------------------------------------------------------------------
+# Region helpers
+# ---------------------------------------------------------------------------
+
+_REGION_ID_TO_DISPLAY: dict[str, str] = {
+    r.lower().replace(" ", "-"): r for r in REGION_ORDER
+}
+
+
+def _region_id(listing: NormalizedListing) -> str:
+    """Return a kebab-case region identifier for the data-region attribute."""
+    region = resolve_region(listing.location_normalized or "")
+    return region.lower().replace(" ", "-")
 
 
 # ---------------------------------------------------------------------------
@@ -521,51 +550,105 @@ def _render_filter_bar(listings: list[NormalizedListing]) -> str:
     )
 
 
+def _render_region_filter_bar(listings: list[NormalizedListing]) -> str:
+    """Render the region filter pill bar.
+
+    Same progressive-enhancement pattern as source filter bar — hidden until
+    JS runs.  Buttons appear in canonical REGION_ORDER.
+    """
+    from collections import Counter
+
+    counts: Counter[str] = Counter(_region_id(l) for l in listings)
+    if not counts:
+        return ""
+
+    region_order_ids = [r.lower().replace(" ", "-") for r in REGION_ORDER]
+    regions_sorted = [(rid, counts[rid]) for rid in region_order_ids if rid in counts]
+
+    all_btn = (
+        '<button class="filter-btn filter-btn-all active" id="filter-btn-all-rgn" aria-pressed="true">'
+        "All"
+        "</button>"
+    )
+    region_btns = "".join(
+        f'<button class="filter-btn active" data-rgn="{_h(rid)}" aria-pressed="true">'
+        f"{_h(_REGION_ID_TO_DISPLAY.get(rid, rid))} ({cnt})"
+        f"</button>"
+        for rid, cnt in regions_sorted
+    )
+
+    return (
+        f'<div id="region-filter-bar" class="filter-bar" style="display:none">\n'
+        f'  <span class="filter-bar-label">Filter by region:</span>\n'
+        f"  {all_btn}\n"
+        f"  {region_btns}\n"
+        f"</div>"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Embedded filter JavaScript
 # ---------------------------------------------------------------------------
 
 _FILTER_JS = """<script>
 (function(){
-  var bar=document.getElementById('filter-bar');
-  if(!bar)return;
-  bar.style.display='flex';
+  var srcBar=document.getElementById('filter-bar');
+  var rgnBar=document.getElementById('region-filter-bar');
+  if(srcBar)srcBar.style.display='flex';
+  if(rgnBar)rgnBar.style.display='flex';
   var allCards=document.querySelectorAll('article.role-card[data-source]');
-  var allSrc=new Set();
-  allCards.forEach(function(c){allSrc.add(c.dataset.source);});
-  var active=new Set(allSrc);
+  var allSrc=new Set(),allRgn=new Set();
+  allCards.forEach(function(c){
+    allSrc.add(c.dataset.source);
+    if(c.dataset.region)allRgn.add(c.dataset.region);
+  });
+  var activeSrc=new Set(allSrc),activeRgn=new Set(allRgn);
   function applyFilter(){
     var vis=0,tot=allCards.length;
     allCards.forEach(function(c){
-      var show=active.has(c.dataset.source);
+      var show=activeSrc.has(c.dataset.source)&&(!c.dataset.region||activeRgn.has(c.dataset.region));
       c.style.display=show?'':'none';
       if(show)vis++;
     });
     var lbl=document.getElementById('filter-count');
     if(lbl)lbl.textContent=vis===tot?'Showing all '+tot+' listings':'Showing '+vis+' of '+tot+' listings';
     document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
-      var on=active.has(b.dataset.src);
+      var on=activeSrc.has(b.dataset.src);
       b.classList.toggle('active',on);
       b.classList.toggle('inactive',!on);
       b.setAttribute('aria-pressed',on?'true':'false');
     });
     var ab=document.getElementById('filter-btn-all');
-    if(ab){
-      var isAll=active.size===allSrc.size;
-      ab.classList.toggle('active',isAll);
-      ab.classList.toggle('inactive',!isAll);
-    }
+    if(ab){var isAll=activeSrc.size===allSrc.size;ab.classList.toggle('active',isAll);ab.classList.toggle('inactive',!isAll);}
+    document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
+      var on=activeRgn.has(b.dataset.rgn);
+      b.classList.toggle('active',on);
+      b.classList.toggle('inactive',!on);
+      b.setAttribute('aria-pressed',on?'true':'false');
+    });
+    var rb=document.getElementById('filter-btn-all-rgn');
+    if(rb){var isAllR=activeRgn.size===allRgn.size;rb.classList.toggle('active',isAllR);rb.classList.toggle('inactive',!isAllR);}
   }
   document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
     b.addEventListener('click',function(){
       var s=b.dataset.src;
-      if(active.has(s)){if(active.size>1)active.delete(s);}
-      else{active.add(s);}
+      if(activeSrc.has(s)){if(activeSrc.size>1)activeSrc.delete(s);}
+      else{activeSrc.add(s);}
       applyFilter();
     });
   });
   var ab=document.getElementById('filter-btn-all');
-  if(ab)ab.addEventListener('click',function(){active=new Set(allSrc);applyFilter();});
+  if(ab)ab.addEventListener('click',function(){activeSrc=new Set(allSrc);applyFilter();});
+  document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var r=b.dataset.rgn;
+      if(activeRgn.has(r)){if(activeRgn.size>1)activeRgn.delete(r);}
+      else{activeRgn.add(r);}
+      applyFilter();
+    });
+  });
+  var rb=document.getElementById('filter-btn-all-rgn');
+  if(rb)rb.addEventListener('click',function(){activeRgn=new Set(allRgn);applyFilter();});
   applyFilter();
 })();
 </script>"""
@@ -665,7 +748,7 @@ def _role_card(
     start = _h(_start_str_safe(listing.start_date, today))
     flags = _flag_pills(listing, today)
 
-    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}">')
+    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}" data-region="{_h(_region_id(listing))}">')
 
     if flags:
         lines.append(flags)
@@ -914,7 +997,7 @@ def _render_html_data_quality(run_metadata: RunMetadata, num_flagged: int) -> st
 
 
 def _render_html_footer(run_metadata: RunMetadata, total: int, generated_at: datetime) -> str:
-    next_report = run_metadata.date_range_end + timedelta(days=7)
+    next_report = _next_friday_from(date.today())
     next_label = f"{next_report.day} {next_report.strftime('%B')} {next_report.year}"
     ts_str = f"{generated_at.day} {generated_at.strftime('%B')} {generated_at.year} at {generated_at.strftime('%H:%M')} UTC"
 
@@ -967,6 +1050,7 @@ def render_weekly_html(
     body_parts: list[str] = [
         _render_html_header(run_metadata, clean, flagged),
         _render_filter_bar(listings),
+        _render_region_filter_bar(listings),
         _render_html_new_section(new_listings, today),
         _render_html_premium_section(premium_listings, today),
         _render_html_urgent_section(urgent_listings, today),

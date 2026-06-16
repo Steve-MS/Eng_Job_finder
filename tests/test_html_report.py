@@ -413,3 +413,106 @@ def test_filter_script_block_present(tmp_path: Path) -> None:
     assert "filter-bar" in content, "Filter JS must reference filter-bar element"
     assert "data-source" in content, "Filter JS must reference data-source attribute"
 
+
+# ---------------------------------------------------------------------------
+# Test 14: every card has a data-region attribute
+# ---------------------------------------------------------------------------
+
+def test_every_card_has_data_region_attribute(tmp_path: Path) -> None:
+    """Every <article class="role-card"> must carry a data-region attribute."""
+    listings = [
+        _make_listing(source_listing_id="r1", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/r1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/r1"],
+                      location_normalized="manchester"),
+        _make_listing(source_listing_id="r2", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/r2",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/r2"],
+                      location_normalized="london"),
+        _make_listing(source_listing_id="r3", source="adzuna",
+                      source_url="https://www.adzuna.co.uk/jobs/r3",
+                      source_urls=["https://www.adzuna.co.uk/jobs/r3"],
+                      location_normalized="remote"),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    import re
+    card_tags = re.findall(r'<article[^>]*class="[^"]*role-card[^"]*"[^>]*>', content)
+    assert len(card_tags) >= 3, "Expected at least 3 role-card articles"
+    for tag in card_tags:
+        assert 'data-region="' in tag, f"Card missing data-region attribute: {tag[:120]}"
+
+
+# ---------------------------------------------------------------------------
+# Test 15: region filter bar lists expected region buttons
+# ---------------------------------------------------------------------------
+
+def test_region_filter_bar_lists_expected_regions(tmp_path: Path) -> None:
+    """Region filter bar must contain one button per unique region in the data."""
+    listings = [
+        _make_listing(source_listing_id="ln1", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/ln1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/ln1"],
+                      location_normalized="london"),
+        _make_listing(source_listing_id="ln2", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/ln2",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/ln2"],
+                      location_normalized="city of london"),
+        _make_listing(source_listing_id="mn1", source="adzuna",
+                      source_url="https://www.adzuna.co.uk/jobs/mn1",
+                      source_urls=["https://www.adzuna.co.uk/jobs/mn1"],
+                      location_normalized="manchester"),
+        _make_listing(source_listing_id="rm1", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/rm1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/rm1"],
+                      location_normalized="remote"),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    assert 'id="region-filter-bar"' in content, "Region filter bar div must be present"
+    assert 'data-rgn="london"' in content, "London region button missing"
+    assert 'data-rgn="north"' in content, "North region button (Manchester) missing"
+    assert 'data-rgn="remote"' in content, "Remote region button missing"
+    assert "London (2)" in content, "London count badge should show 2"
+
+
+# ---------------------------------------------------------------------------
+# Test 16: region filter JS references data-region and data-rgn
+# ---------------------------------------------------------------------------
+
+def test_region_filter_js_present(tmp_path: Path) -> None:
+    """The embedded script must contain region-filter logic."""
+    listing = _make_listing()
+    meta = _make_run_metadata([listing])
+    out = render_weekly_html([listing], meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    assert "data-rgn" in content, "Filter JS must reference data-rgn attribute"
+    assert "activeRgn" in content, "Filter JS must maintain activeRgn state"
+    assert "region-filter-bar" in content, "Filter JS must reference region-filter-bar"
+
+
+# ---------------------------------------------------------------------------
+# Test 17: source × region filters are combinable (both data attributes present)
+# ---------------------------------------------------------------------------
+
+def test_card_has_both_source_and_region_attributes(tmp_path: Path) -> None:
+    """Each card must have both data-source and data-region so JS can AND them."""
+    listing = _make_listing(location_normalized="birmingham")
+    meta = _make_run_metadata([listing])
+    out = render_weekly_html([listing], meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    import re
+    card_tags = re.findall(r'<article[^>]*class="[^"]*role-card[^"]*"[^>]*>', content)
+    assert card_tags, "No role-card article found"
+    for tag in card_tags:
+        assert 'data-source="' in tag, "Card missing data-source"
+        assert 'data-region="' in tag, "Card missing data-region"
+        assert 'data-region="midlands"' in tag, (
+            f"Birmingham should map to midlands, got: {tag}"
+        )

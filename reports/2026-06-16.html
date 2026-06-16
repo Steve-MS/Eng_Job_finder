@@ -383,6 +383,18 @@ footer strong { color: var(--text); }
 .filter-btn-all.active { background:#f1f5f9; color:var(--text); border-color:#374151; opacity:1; }
 .filter-count-label { font-size: 12px; color: var(--muted); margin-left: auto; font-style: italic; }
 
+/* ---- Region filter bar ---- */
+#region-filter-bar { margin-top: -12px; }
+.filter-btn[data-rgn="london"].active     { background:#dbeafe; color:#1d4ed8; border-color:#1d4ed8; }
+.filter-btn[data-rgn="south-east"].active { background:#ccfbf1; color:#0f766e; border-color:#0f766e; }
+.filter-btn[data-rgn="midlands"].active   { background:#dcfce7; color:#15803d; border-color:#15803d; }
+.filter-btn[data-rgn="north"].active      { background:#ffedd5; color:#c2410c; border-color:#c2410c; }
+.filter-btn[data-rgn="scotland"].active   { background:#f3e8ff; color:#6b21a8; border-color:#6b21a8; }
+.filter-btn[data-rgn="wales"].active      { background:#fee2e2; color:#b91c1c; border-color:#b91c1c; }
+.filter-btn[data-rgn="remote"].active     { background:#e0e7ff; color:#4338ca; border-color:#4338ca; }
+.filter-btn[data-rgn="other"].active      { background:#f1f5f9; color:#374151; border-color:#374151; }
+.filter-btn[data-rgn="region-tbc"].active { background:#f1f5f9; color:#374151; border-color:#374151; }
+
   </style>
 </head>
 <body>
@@ -391,9 +403,9 @@ footer strong { color: var(--text); }
   <h1>Weekly Mechanical Engineering PM Contract Report</h1>
   <div class="report-meta">
     <span><strong>Week of:</strong> 9 June – 16 June 2026</span>
-    <span><strong>Generated:</strong> Tuesday, 16 June 2026 at 10:32 UTC</span>
+    <span><strong>Generated:</strong> Tuesday, 16 June 2026 at 10:51 UTC</span>
     <span><strong>Sources:</strong> reed, railwaypeople, energy_jobline, aviation_job_search, adzuna</span>
-    <span><strong>Records:</strong> 39 unique (from 468 raw)</span>
+    <span><strong>Records:</strong> 39 unique (from 472 raw)</span>
     
   </div>
 </header>
@@ -410,12 +422,17 @@ footer strong { color: var(--text); }
   <button class="filter-btn active" data-src="reed" aria-pressed="true">Reed (28)</button><button class="filter-btn active" data-src="adzuna" aria-pressed="true">Adzuna (6)</button><button class="filter-btn active" data-src="aviation-job-search" aria-pressed="true">Aviation Job Search (2)</button><button class="filter-btn active" data-src="railwaypeople" aria-pressed="true">RailwayPeople (2)</button><button class="filter-btn active" data-src="energy-jobline" aria-pressed="true">Energy Jobline (1)</button>
   <span id="filter-count" class="filter-count-label">Showing all 39 listings</span>
 </div>
+<div id="region-filter-bar" class="filter-bar" style="display:none">
+  <span class="filter-bar-label">Filter by region:</span>
+  <button class="filter-btn filter-btn-all active" id="filter-btn-all-rgn" aria-pressed="true">All</button>
+  <button class="filter-btn active" data-rgn="london" aria-pressed="true">London (6)</button><button class="filter-btn active" data-rgn="south-east" aria-pressed="true">South-East (12)</button><button class="filter-btn active" data-rgn="midlands" aria-pressed="true">Midlands (3)</button><button class="filter-btn active" data-rgn="north" aria-pressed="true">North (2)</button><button class="filter-btn active" data-rgn="region-tbc" aria-pressed="true">Region TBC (16)</button>
+</div>
 <section id="new-listings">
   <header>
     <h2>🆕 New This Week</h2>
     <span class="section-count">39 roles</span>
   </header>
-  <article class="role-card card-new" data-source="reed">
+  <article class="role-card card-new" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/technical-project-manager/56879532" target="_blank" rel="noopener">Technical Project Manager</a></div>
 <div class="card-employer">Tenth Revolution Group</div>
@@ -429,7 +446,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">London (Hybrid) Start: June 2026 Contract length: 6 months (outside IR35) I&#x27;m currently recruiting for a Project Manager to support delivery within the construction / engineering sector, working across business, commercial teams and third-party vendors (incl. AI/data providers). Key Responsibilities Deliver projects…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/technical-project-manager/56879532" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/senior-project-engineer-e-p/56941025" target="_blank" rel="noopener">Senior Project Engineer (E&amp;P)</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -443,7 +460,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Senior Project Engineer (E&amp;P) Location: Manchester Hybrid Working: 3 days per week onsite Contract Length: 8 Months Rate: 550 - 600 per day Umbrella IR35 Status: Inside IR35 We are currently seeking an experienced Senior Project Engineer (E&amp;P) to support the successful delivery of major rail infrastructure projects…</p>
 <div class="soft-note">💡 Location: M12NY — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/senior-project-engineer-e-p/56941025" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager-edv-clearance/57014920" target="_blank" rel="noopener">Project Manager - eDV Clearance</a></div>
 <div class="card-employer">Ernest Gordon Recruitment Limited</div>
@@ -456,7 +473,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Manager - eDV Clearance London / Manchester 12 Month Initial - Inside IR35 - Up to 600 pd Must Have Active eDV Clearance Are you an Project Manager that wants to work with one of the leading names in the Aerospace and Defence space? Do you want to help solve some of the Defence industries biggest challenges?…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager-edv-clearance/57014920" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager-nex/56793827" target="_blank" rel="noopener">Project Manager - NEX</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -470,7 +487,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Project Manager - NEX (Temp) Location: Major UK Airport (South East) Rate: 575/day - Umbrella rate Duration: 1 year Site: Minimum 3 days per week on site Role Overview We are seeking an experienced Project Manager to lead delivery of a major North Extension (NEX) within a live airport transformation…</p>
 <div class="soft-note">💡 Location: CM241QW — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager-nex/56793827" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/mechanical-site-manager/56968092" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -483,7 +500,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Mechanical Site Manager Location: Windsor Rate: 400 - 450 per day Start: ASAP Duration: Long-term project Project Overview We are looking for a Mechanical Site Manager to lead an upgrade project on a water treatment plant in Windsor. This is a long-term contract focusing on the installation and delivery of mechanical…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/mechanical-site-manager/56968092" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/facilities-project-engineer/56925191" target="_blank" rel="noopener">Facilities Project Engineer</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -496,7 +513,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Facilities Project Engineer 12 month contract Based in Havant Offering between 38- 48ph Inside IR35 Do you hold a PRINCE2 or equivalent certification? Do you hold a NEBOSH Level 2 Health and Safety at work qualification? Do you want to work with an industry-leading company? If your answer to these is yes, then this…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/facilities-project-engineer/56925191" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-planner/56934535" target="_blank" rel="noopener">Project Planner</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -509,7 +526,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Planner 12 month contract Based in Oxford Offering 46.30ph Inside IR35 Do you have experience using Primavera P6 (Expert level)? Do you have experience operating across the full project development lifecycle? Do you want to work with an industry-leading company? If your answer to these is yes, then this could…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-planner/56934535" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/lab-project-manager/56917609" target="_blank" rel="noopener">Lab Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -522,7 +539,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Lab Project Manager Contract up to 30/04/2027 Based in Filton Offering 45ph Inside IR35 Do you have experience as a Project Manager within a highly regulated industry? Do you have technical experience in engineering? Do you want to work with an industry-leading company? If your answer to these is yes, then this could…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/lab-project-manager/56917609" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="north">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/pmo-project-co-ordinator-pre-construction-infrastructure/56898947" target="_blank" rel="noopener">PMO Project Co-ordinator Pre-Construction / Infrastructure</a></div>
 <div class="card-employer">Jonathan Lee Recruitment</div>
@@ -535,7 +552,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">PMO Project Co-ordinator Pre-Construction / Infrastructure - 37187384 - 41.50/hr umbrella rate Have you delivered infrastructure projects (electrical, mechanical, civils…) in an industrial / manufacturing environment? Do you have knowledge of RIBA plan of work stages and the infrastructure project lifecycle? and…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/pmo-project-co-ordinator-pre-construction-infrastructure/56898947" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989096" target="_blank" rel="noopener">Assistant Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -549,7 +566,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Assistant Project Manager Location: York or Manchester (3 days per week in the office) Rate: 321 per day Umbrella Contract: 12 Months We are seeking experienced Project Development Managers to join a major rail infrastructure programme, supporting the development of enhancement projects from inception through…</p>
 <div class="soft-note">💡 Location: YO17HP — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989096" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989048" target="_blank" rel="noopener">Assistant Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -563,7 +580,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Assistant Project Manager Location: York or Manchester (3 days per week in the office) Rate: 321 per day Umbrella Contract: 12 Months We are seeking experienced Project Development Managers to join a major rail infrastructure programme, supporting the development of enhancement projects from inception through…</p>
 <div class="soft-note">💡 Location: M11AE — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989048" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/belfast-building-construction-project-manager/56898264" target="_blank" rel="noopener">Belfast - Building &amp; Construction Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -577,7 +594,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Building &amp; Construction Project Manager Location: Belfast Rate: 40.44 per hour (umbrella rate) Contract: 12 months Overview An opportunity for an experienced client-side Construction Project Manager to deliver major site-based projects from feasibility through to handover. You?ll work in a fast-paced…</p>
 <div class="soft-note">💡 Location: BT14LS — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/belfast-building-construction-project-manager/56898264" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager/56950623" target="_blank" rel="noopener">Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -590,7 +607,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">MERITUS are recruiting for a Configuration Project Manager to join our client in an initial 9 month contract from their site in Filton. Please note, you must have demonstrable configuration management experience listed on your CV to be considered. PROJECT MANAGER - CONFIGURATION - INSIDE IR35 - 40 PER HOUR - 9 MONTHS…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager/56950623" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">Building And Construction Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -604,7 +621,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Building &amp; Construction Project Manager Belfast | 12-Month Contract | 40.44 per hour (Umbrella) | Full time onsite About the Role We are looking for an experienced Building &amp; Construction Project Manager to lead major site-based construction projects from concept through to completion and handover. This is a…</p>
 <div class="soft-note">💡 Location: BT14LS — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">View Full Listing</a> <span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56926870" target="_blank" rel="noopener">View Full Listing</a> <a class="source-link" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">Reed</a> · <a class="source-link" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56926870" target="_blank" rel="noopener">Reed</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/portsmouth-building-and-construction-project-lead/56970321" target="_blank" rel="noopener">Portsmouth - Building And Construction Project Lead</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -617,7 +634,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Building &amp; Construction Project Leader - Capital Projects (Defence Sector) Location: Portsmouth Contract: 12 months (with possible extension) Eligibility: UK Nationals only Pay: 40.00 per hour (Umbrella rate) Overview A leading defence environment is seeking a strong Project Construction Leader with solid construction…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/portsmouth-building-and-construction-project-lead/56970321" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/building-construction-project-manager/56990522" target="_blank" rel="noopener">Building &amp; Construction Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -630,7 +647,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">MERITUS are recruiting for a Building &amp; Construction Project Manager to join a leading aerospace and engineering organisation, delivering major construction, infrastructure, and facilities projects across a complex operational manufacturing environment. BUILDING &amp; CONSTRUCTION PROJECT MANAGER - AEROSPACE &amp; ADVANCED…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-construction-project-manager/56990522" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/hr-transformation-project-manager/56977173" target="_blank" rel="noopener">HR Transformation Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -643,7 +660,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">HR Transformation Project Manager Belfast 18 month contract 36.45 per hour umbrella ARM have an exciting opportunity for a HR Transformation Project Manager to join a global leader in aerospace innovation. You will take the lead on critical projects, acting as the local project management expert to transform our HR…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/hr-transformation-project-manager/56977173" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/configuration-project-manager-widebody/56888908" target="_blank" rel="noopener">Configuration Project Manager (Widebody)</a></div>
 <div class="card-employer">Impellam</div>
@@ -657,7 +674,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Widebody Configuration Project Manager (Wing) Location: Filton (hybrid - approx. 60% onsite) Contract: Contract (Inside IR35) Hours: 35 hours per week | Flexible working between 7am-7pm Rate: 29.89 per hour PAYE / 40.00 per hour Umbrella About the role Guidant Global is proud to be partnering with Airbus to recruit a…</p>
 <div class="soft-note">💡 Location: BS347PA — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/configuration-project-manager-widebody/56888908" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+</article><article class="role-card card-new" data-source="adzuna" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/details/5761832435?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">Site Manager</a></div>
 <div class="card-employer">SThree UK</div>
@@ -671,7 +688,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Currently seeking an experienced Site Manager to support the delivery of a major automation project on a brownfield chemical plant in Cambridge. The successful candidate will take responsibility for overseeing on-site activities across the installation, testing, implementation and commissioning phases of the project.…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/details/5761832435?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+</article><article class="role-card card-new" data-source="adzuna" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/details/5762595075?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">Construction Project Manager</a></div>
 <div class="card-employer">BAE Systems</div>
@@ -685,9 +702,9 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title\: Construction Project Manager Location: Warton/Samlesbury - On-site Salary: £42,850 (DOE) Who we are: Join BAE Systems and you’ll be part of something bigger. As a valued member of our global colleague network, you’ll bring your unique skills and perspectives to help pioneer progress and protect what…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/details/5762595075?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+</article><article class="role-card card-new" data-source="adzuna" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=lIwUqm5p8RGG6KnF7O4M-w&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=UIzxWXFp8RGdcKmg89akZw&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
 <div class="card-employer">Carrington West</div>
 <div class="card-location">📍 Kingsfold, Horsham</div>
 <div class="card-details">
@@ -698,10 +715,10 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Job Title: Mechanical &amp; Electrical Site Manager Water (Contract) Location: Horsham, West Sussex Contract Length: 3 Months Rate: up to £450 a day Umbrella/Limited Overview: A leading water and environmental infrastructure contractor is seeking an experienced Mechanical &amp; Electrical (M&amp;E) Site Manager to support…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=lIwUqm5p8RGG6KnF7O4M-w&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=UIzxWXFp8RGdcKmg89akZw&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="adzuna" data-region="midlands">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
 <div class="card-employer">Rise Technical Recruitment</div>
 <div class="card-location">📍 Newton Solney, Burton-On-Trent</div>
 <div class="card-details">
@@ -712,10 +729,10 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Mechanical Site Manager Derby (Midlands - UK Wide Travel) £60,000 Bonus Company Car Excellent Benefits Excellent opportunity for a Mechanical Installation Site Manager/Supervisor to join a leading engineering organisation delivering major water and infrastructure projects across the UK. This role is ideal for a…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="adzuna" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
 <div class="card-employer">Rubicon Consulting</div>
 <div class="card-location">📍 South East London, London</div>
 <div class="card-details">
@@ -726,10 +743,10 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Rubicon Consulting is currently recruiting for M&amp;E Site Manager on an 16 month contract based in Kent. Role Summary We are seeking an experienced HVDC Site Manager with a strong Mechanical &amp; Electrical background to oversee the safe and efficient delivery of High Voltage Direct Current infrastructure projects on…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="adzuna">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="adzuna" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">Project Engineer-National Grid-South Wales</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">Project Engineer-National Grid-South Wales</a></div>
 <div class="card-employer">Solution Search Limited - Civils &amp; Rail</div>
 <div class="card-location">📍 Llanpumsaint, Carmarthen</div>
 <div class="card-details">
@@ -740,8 +757,8 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Engineer-South Wales-National Grid Our client are looking for a Project Engineer capable of leading &amp; managing wiremen who will be doing the installation of 4 subracks in existing NG Protection &amp; Control panels as well as other panel modifications on a 400kv Sub station for National Grid in Swansea.…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="aviation-job-search">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="aviation-job-search" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.aviationjobsearch.com/jobs/management/projects-manager/engineering-project-manager-by-jmc-recruitment-solutions-607645" target="_blank" rel="noopener">Engineering Project Manager</a></div>
 <div class="card-employer">JMC Aviation</div>
@@ -755,7 +772,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Purpose The Project Manager is ultimately responsible for the management and coordination of all engineering and associated projects including tank entry teams. They are also responsible to the Head Engineering for the efficient management, administration and compliance of all engineering projects. Main Duties and…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Aviation Job Search</span><a class="view-listing-btn" href="https://www.aviationjobsearch.com/jobs/management/projects-manager/engineering-project-manager-by-jmc-recruitment-solutions-607645" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="aviation-job-search">
+</article><article class="role-card card-new" data-source="aviation-job-search" data-region="midlands">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.aviationjobsearch.com/jobs/aircraft-maintenance-engineers/aircraft-maintenance-manager/deputy-engineering-manager-by-gama-aviation-616363" target="_blank" rel="noopener">Deputy Engineering Manager</a></div>
 <div class="card-employer">Gama Aviation</div>
@@ -769,7 +786,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">/ Position : Deputy Engineering Manager / Location: Lincoln / Working Hours: Mon-Fri, 8am-5pm Generous Welcome Bonus and Relocation Support Competitive Salary + Attractive location-based Allowance + Excellent Benefits! Opportunities for professional development! Gama Aviation is one of the UK’s leading Business…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Aviation Job Search</span><a class="view-listing-btn" href="https://www.aviationjobsearch.com/jobs/aircraft-maintenance-engineers/aircraft-maintenance-manager/deputy-engineering-manager-by-gama-aviation-616363" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="energy-jobline">
+</article><article class="role-card card-new" data-source="energy-jobline" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.energyjobline.com/job/assistant-project-manager-southampton-30259223" target="_blank" rel="noopener">Assistant Project Manager in Southampton</a></div>
 <div class="card-employer">Energy Jobline ZR</div>
@@ -782,7 +799,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Energy Jobline</span><a class="view-listing-btn" href="https://www.energyjobline.com/job/assistant-project-manager-southampton-30259223" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="railwaypeople">
+</article><article class="role-card card-new" data-source="railwaypeople" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.railwaypeople.com/job/engineering-manager-rail-54350" target="_blank" rel="noopener">Engineering Manager - Rail</a></div>
 <div class="card-employer">Advance TRS Ltd</div>
@@ -795,7 +812,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">RailwayPeople</span><a class="view-listing-btn" href="https://www.railwaypeople.com/job/engineering-manager-rail-54350" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="railwaypeople">
+</article><article class="role-card card-new" data-source="railwaypeople" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.railwaypeople.com/job/senior-project-engineer-civils-54730" target="_blank" rel="noopener">Senior Project Engineer (Civils)</a></div>
 <div class="card-employer">Advance TRS Ltd</div>
@@ -808,7 +825,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">RailwayPeople</span><a class="view-listing-btn" href="https://www.railwaypeople.com/job/senior-project-engineer-civils-54730" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/planning-manager/56885286" target="_blank" rel="noopener">Planning Manager</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -822,35 +839,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Are you ready to lead one of the most ambitious industrial transformations in Europe? This project is moving from vision to reality, and our client is looking for a visionary leader to steer a 1.25bn portfolio that will fundamentally reshape their operations. This isn&#x27;t just a scheduling role; it&#x27;s a…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: SA132NG — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/planning-manager/56885286" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
-<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">Manufacturing Project Manager / Bid Lead</a></div>
-<div class="card-employer">Certain Advantage</div>
-<div class="card-location">📍 BL51EE</div>
-<div class="card-details">
-  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
-  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
-  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
-  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
-</div>
-<p class="card-summary">World Class Defence Organisation based in Bolton is currently looking to recruit a Manufacturing Project Manager / Bid Lead subcontractor on an initial 12 month contract. The role will be a hybrid role of working from home and onsite (2 days per week). This role would suit a candidate who has bid manager / bid…</p>
-<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: BL51EE — region not mapped</div>
-<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
-<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">Project Manager</a></div>
-<div class="card-employer">Macildowie Recruitment and Retention</div>
-<div class="card-location">📍 Stafford</div>
-<div class="card-details">
-  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
-  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
-  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
-  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
-</div>
-<p class="card-summary">Macildowie Procurement, Supply Chain &amp; Logistics Project Manager – Up to 40,000 Per Annum – 12 Month FTC Monday – Friday, 7:30am – 4:40pm Macildowie Procurement has partnered with a manufacturing business in Stafford to recruit a Project Manager. The key objective of this position is to manage up to 20 projects,…</p>
-<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/schemes-project-manager-rail-systems/56890546" target="_blank" rel="noopener">Schemes Project Manager - Rail Systems</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -864,35 +853,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Schemes Project Manager - Freelance - Rail Systems I&#x27;m seeking an experienced Schemes Project Manager to join my client working on a large high profile contract in West London. This is a freelance position which will continue on an ongoing basis for next 2+ years. You will be the primary driver of project execution,…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/schemes-project-manager-rail-systems/56890546" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
-<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">Construction Project Manager</a></div>
-<div class="card-employer">Meritus Talent</div>
-<div class="card-location">📍 Stevenage</div>
-<div class="card-details">
-  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
-  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
-  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
-  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
-</div>
-<p class="card-summary">MERITUS are recruiting for a Construction &amp; Facilities Project Manager to join a leading Defence Manufacturing organisation , delivering major infrastructure, construction, and facilities improvement projects across highly secure, regulated, and complex operational manufacturing environments. CONSTRUCTION &amp; FACILITIES…</p>
-<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
-<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">Aerospace Project Manager</a></div>
-<div class="card-employer">Meritus Talent</div>
-<div class="card-location">📍 Gloucestershire</div>
-<div class="card-details">
-  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
-  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-inside">Inside IR35</span></span>
-  <span class="detail-item"><span class="detail-label">Duration:</span> 6 months</span>
-  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
-</div>
-<p class="card-summary">MERITUS are recruiting for an Aerospace Project Manager to join our client in Filton to support Manufacturing &amp; Supply chain projects in an initial 6 month contract. AEROSPACE PROJECT MANAGER - INSIDE IR35 - 45 PER HOUIR - 6 MONTHS - FILTON (60% ONSITE) - SECTOR: AVIATION/AEROSPACE - SINGLE STAGE INTERVIEW PROCESS…</p>
-<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="north">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/interior-design-project-manager/56989282" target="_blank" rel="noopener">Interior Design Project Manager</a></div>
 <div class="card-employer">Adecco </div>
@@ -906,7 +867,63 @@ footer strong { color: var(--text); }
 <p class="card-summary">Interior Design Project Manager Location: Crewe Contract Type: Temporary (6 Months) with possible extensions Rate: Competitive Driving Required: Yes Are you a passionate and driven Interior Design Project Manager looking to make an impact in the manufacturing and production industry? Adecco working in partnership with…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/interior-design-project-manager/56989282" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
+<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
+<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">Manufacturing Project Manager / Bid Lead</a></div>
+<div class="card-employer">Certain Advantage</div>
+<div class="card-location">📍 BL51EE</div>
+<div class="card-details">
+  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
+  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
+  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
+  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
+</div>
+<p class="card-summary">World Class Defence Organisation based in Bolton is currently looking to recruit a Manufacturing Project Manager / Bid Lead subcontractor on an initial 12 month contract. The role will be a hybrid role of working from home and onsite (2 days per week). This role would suit a candidate who has bid manager / bid…</p>
+<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: BL51EE — region not mapped</div>
+<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="reed" data-region="midlands">
+<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
+<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">Project Manager</a></div>
+<div class="card-employer">Macildowie Recruitment and Retention</div>
+<div class="card-location">📍 Stafford</div>
+<div class="card-details">
+  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
+  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
+  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
+  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
+</div>
+<p class="card-summary">Macildowie Procurement, Supply Chain &amp; Logistics Project Manager – Up to 40,000 Per Annum – 12 Month FTC Monday – Friday, 7:30am – 4:40pm Macildowie Procurement has partnered with a manufacturing business in Stafford to recruit a Project Manager. The key objective of this position is to manage up to 20 projects,…</p>
+<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
+<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
+<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
+<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">Construction Project Manager</a></div>
+<div class="card-employer">Meritus Talent</div>
+<div class="card-location">📍 Stevenage</div>
+<div class="card-details">
+  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
+  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-none">IR35 Not Stated</span></span>
+  <span class="detail-item"><span class="detail-label">Duration:</span> 12 months</span>
+  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
+</div>
+<p class="card-summary">MERITUS are recruiting for a Construction &amp; Facilities Project Manager to join a leading Defence Manufacturing organisation , delivering major infrastructure, construction, and facilities improvement projects across highly secure, regulated, and complex operational manufacturing environments. CONSTRUCTION &amp; FACILITIES…</p>
+<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
+<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
+<div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
+<div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">Aerospace Project Manager</a></div>
+<div class="card-employer">Meritus Talent</div>
+<div class="card-location">📍 Gloucestershire</div>
+<div class="card-details">
+  <span class="detail-item"><span class="detail-label">Rate:</span> Rate TBC <span class="rate-band-tag">(rate unknown)</span></span>
+  <span class="detail-item"><span class="detail-label">IR35:</span> <span class="ir35-badge ir35-inside">Inside IR35</span></span>
+  <span class="detail-item"><span class="detail-label">Duration:</span> 6 months</span>
+  <span class="detail-item"><span class="detail-label">Start:</span> Start TBC</span>
+</div>
+<p class="card-summary">MERITUS are recruiting for an Aerospace Project Manager to join our client in Filton to support Manufacturing &amp; Supply chain projects in an initial 6 month contract. AEROSPACE PROJECT MANAGER - INSIDE IR35 - 45 PER HOUIR - 6 MONTHS - FILTON (60% ONSITE) - SECTOR: AVIATION/AEROSPACE - SINGLE STAGE INTERVIEW PROCESS…</p>
+<div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
+<div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/senior-project-engineer/56897479" target="_blank" rel="noopener">Senior Project Engineer</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -920,7 +937,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Project Engineer / Senior Project Engineer (MEP - Building Services) Location: Birmingham area (min. 3 days office-based) Duration: to 31/03/2027 Role Overview We are seeking a Project Engineer and Senior Project Engineer with strong MEP / Building Services experience to support a major infrastructure…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: B46AT — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/senior-project-engineer/56897479" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-lead-exterior-systems/57014369" target="_blank" rel="noopener">Project Lead - Exterior Systems</a></div>
 <div class="card-employer">Randstad Technologies</div>
@@ -934,7 +951,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Exterior Project Lead - Premium Automotive Systems Role Overview As the Exterior Project Lead , you will drive the engineering development and project management for exterior systems on next-generation smart electric vehicles. This role requires a powerful blend of technical design authority and robust project…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-lead-exterior-systems/57014369" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-new" data-source="reed">
+</article><article class="role-card card-new" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/junior-project-engineer/56936275" target="_blank" rel="noopener">Junior Project Engineer</a></div>
 <div class="card-employer">Trapeze Recruitment Services Limited</div>
@@ -956,7 +973,7 @@ footer strong { color: var(--text); }
     <span class="section-count">39 active roles across UK</span>
   </header>
   <p class="section-note">Listed by region, then seniority (descending), then start date (ascending).</p>
-  <div class="region-section"><h3 class="region-heading">🇬🇧 London <small>(6 roles)</small></h3><h4 class="seniority-heading">Mid-Level</h4><article class="role-card card-pipeline" data-source="reed">
+  <div class="region-section"><h3 class="region-heading">🇬🇧 London <small>(6 roles)</small></h3><h4 class="seniority-heading">Mid-Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager-edv-clearance/57014920" target="_blank" rel="noopener">Project Manager - eDV Clearance</a></div>
 <div class="card-employer">Ernest Gordon Recruitment Limited</div>
@@ -969,7 +986,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Manager - eDV Clearance London / Manchester 12 Month Initial - Inside IR35 - Up to 600 pd Must Have Active eDV Clearance Are you an Project Manager…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager-edv-clearance/57014920" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed">
+</article><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/technical-project-manager/56879532" target="_blank" rel="noopener">Technical Project Manager</a></div>
 <div class="card-employer">Tenth Revolution Group</div>
@@ -983,9 +1000,9 @@ footer strong { color: var(--text); }
 <p class="card-summary">London (Hybrid) Start: June 2026 Contract length: 6 months (outside IR35) I&#x27;m currently recruiting for a Project Manager to support delivery within the…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/technical-project-manager/56879532" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="adzuna">
+</article><article class="role-card card-pipeline" data-source="adzuna" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
 <div class="card-employer">Rubicon Consulting</div>
 <div class="card-location">📍 South East London, London</div>
 <div class="card-details">
@@ -996,8 +1013,8 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Rubicon Consulting is currently recruiting for M&amp;E Site Manager on an 16 month contract based in Kent. Role Summary We are seeking an experienced HVDC Site…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="railwaypeople">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764586706?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=B4F3EAF8761872F48133DB0A4678F22AAF554CF7" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-pipeline" data-source="railwaypeople" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.railwaypeople.com/job/engineering-manager-rail-54350" target="_blank" rel="noopener">Engineering Manager - Rail</a></div>
 <div class="card-employer">Advance TRS Ltd</div>
@@ -1010,7 +1027,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">RailwayPeople</span><a class="view-listing-btn" href="https://www.railwaypeople.com/job/engineering-manager-rail-54350" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="railwaypeople">
+</article><article class="role-card card-pipeline" data-source="railwaypeople" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.railwaypeople.com/job/senior-project-engineer-civils-54730" target="_blank" rel="noopener">Senior Project Engineer (Civils)</a></div>
 <div class="card-employer">Advance TRS Ltd</div>
@@ -1023,7 +1040,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">RailwayPeople</span><a class="view-listing-btn" href="https://www.railwaypeople.com/job/senior-project-engineer-civils-54730" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="london">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/schemes-project-manager-rail-systems/56890546" target="_blank" rel="noopener">Schemes Project Manager - Rail Systems</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -1037,7 +1054,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Schemes Project Manager - Freelance - Rail Systems I&#x27;m seeking an experienced Schemes Project Manager to join my client working on a large high profile…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/schemes-project-manager-rail-systems/56890546" target="_blank" rel="noopener">View Full Listing</a></div>
-</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 South-East <small>(12 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed">
+</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 South-East <small>(12 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/mechanical-site-manager/56968092" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -1050,7 +1067,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Mechanical Site Manager Location: Windsor Rate: 400 - 450 per day Start: ASAP Duration: Long-term project Project Overview We are looking for a Mechanical Site…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/mechanical-site-manager/56968092" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-planner/56934535" target="_blank" rel="noopener">Project Planner</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1063,7 +1080,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Planner 12 month contract Based in Oxford Offering 46.30ph Inside IR35 Do you have experience using Primavera P6 (Expert level)? Do you have experience…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-planner/56934535" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/lab-project-manager/56917609" target="_blank" rel="noopener">Lab Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1076,7 +1093,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Lab Project Manager Contract up to 30/04/2027 Based in Filton Offering 45ph Inside IR35 Do you have experience as a Project Manager within a highly regulated…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/lab-project-manager/56917609" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager/56950623" target="_blank" rel="noopener">Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -1089,7 +1106,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">MERITUS are recruiting for a Configuration Project Manager to join our client in an initial 9 month contract from their site in Filton. Please note, you must…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager/56950623" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/portsmouth-building-and-construction-project-lead/56970321" target="_blank" rel="noopener">Portsmouth - Building And Construction Project Lead</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1102,7 +1119,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Building &amp; Construction Project Leader - Capital Projects (Defence Sector) Location: Portsmouth Contract: 12 months (with possible extension) Eligibility: UK…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/portsmouth-building-and-construction-project-lead/56970321" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="adzuna">
+</article><article class="role-card card-pipeline" data-source="adzuna" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/details/5761832435?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">Site Manager</a></div>
 <div class="card-employer">SThree UK</div>
@@ -1116,9 +1133,9 @@ footer strong { color: var(--text); }
 <p class="card-summary">Currently seeking an experienced Site Manager to support the delivery of a major automation project on a brownfield chemical plant in Cambridge. The successful…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/details/5761832435?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="adzuna">
+</article><article class="role-card card-pipeline" data-source="adzuna" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=lIwUqm5p8RGG6KnF7O4M-w&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=UIzxWXFp8RGdcKmg89akZw&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">M&amp;E Site Manager</a></div>
 <div class="card-employer">Carrington West</div>
 <div class="card-location">📍 Kingsfold, Horsham</div>
 <div class="card-details">
@@ -1129,8 +1146,8 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Job Title: Mechanical &amp; Electrical Site Manager Water (Contract) Location: Horsham, West Sussex Contract Length: 3 Months Rate: up to £450 a day…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=lIwUqm5p8RGG6KnF7O4M-w&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="aviation-job-search">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764433226?se=UIzxWXFp8RGdcKmg89akZw&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=30A3AC1CAC0FBCB8409B90900D4C74C8FA7169B5" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-pipeline" data-source="aviation-job-search" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.aviationjobsearch.com/jobs/management/projects-manager/engineering-project-manager-by-jmc-recruitment-solutions-607645" target="_blank" rel="noopener">Engineering Project Manager</a></div>
 <div class="card-employer">JMC Aviation</div>
@@ -1144,7 +1161,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Purpose The Project Manager is ultimately responsible for the management and coordination of all engineering and associated projects including tank entry…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Aviation Job Search</span><a class="view-listing-btn" href="https://www.aviationjobsearch.com/jobs/management/projects-manager/engineering-project-manager-by-jmc-recruitment-solutions-607645" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="energy-jobline">
+</article><article class="role-card card-pipeline" data-source="energy-jobline" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.energyjobline.com/job/assistant-project-manager-southampton-30259223" target="_blank" rel="noopener">Assistant Project Manager in Southampton</a></div>
 <div class="card-employer">Energy Jobline ZR</div>
@@ -1157,7 +1174,7 @@ footer strong { color: var(--text); }
 </div>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Energy Jobline</span><a class="view-listing-btn" href="https://www.energyjobline.com/job/assistant-project-manager-southampton-30259223" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">Construction Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -1171,7 +1188,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">MERITUS are recruiting for a Construction &amp; Facilities Project Manager to join a leading Defence Manufacturing organisation , delivering major infrastructure,…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/construction-project-manager/57004328" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">Aerospace Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -1185,7 +1202,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">MERITUS are recruiting for an Aerospace Project Manager to join our client in Filton to support Manufacturing &amp; Supply chain projects in an initial 6 month…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/aerospace-project-manager/56885218" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="south-east">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-lead-exterior-systems/57014369" target="_blank" rel="noopener">Project Lead - Exterior Systems</a></div>
 <div class="card-employer">Randstad Technologies</div>
@@ -1199,9 +1216,9 @@ footer strong { color: var(--text); }
 <p class="card-summary">Exterior Project Lead - Premium Automotive Systems Role Overview As the Exterior Project Lead , you will drive the engineering development and project…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-lead-exterior-systems/57014369" target="_blank" rel="noopener">View Full Listing</a></div>
-</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 Midlands <small>(3 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="adzuna">
+</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 Midlands <small>(3 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="adzuna" data-region="midlands">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">Mechanical Site Manager</a></div>
 <div class="card-employer">Rise Technical Recruitment</div>
 <div class="card-location">📍 Newton Solney, Burton-On-Trent</div>
 <div class="card-details">
@@ -1212,8 +1229,8 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Mechanical Site Manager Derby (Midlands - UK Wide Travel) £60,000 Bonus Company Car Excellent Benefits Excellent opportunity for a Mechanical Installation Site…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="aviation-job-search">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5764526552?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=0F008C92980FE70CC0B9BEF7EC5CBE34FE3D0416" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-pipeline" data-source="aviation-job-search" data-region="midlands">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.aviationjobsearch.com/jobs/aircraft-maintenance-engineers/aircraft-maintenance-manager/deputy-engineering-manager-by-gama-aviation-616363" target="_blank" rel="noopener">Deputy Engineering Manager</a></div>
 <div class="card-employer">Gama Aviation</div>
@@ -1227,7 +1244,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">/ Position : Deputy Engineering Manager / Location: Lincoln / Working Hours: Mon-Fri, 8am-5pm Generous Welcome Bonus and Relocation Support Competitive Salary…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Aviation Job Search</span><a class="view-listing-btn" href="https://www.aviationjobsearch.com/jobs/aircraft-maintenance-engineers/aircraft-maintenance-manager/deputy-engineering-manager-by-gama-aviation-616363" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="midlands">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">Project Manager</a></div>
 <div class="card-employer">Macildowie Recruitment and Retention</div>
@@ -1241,7 +1258,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Macildowie Procurement, Supply Chain &amp; Logistics Project Manager – Up to 40,000 Per Annum – 12 Month FTC Monday – Friday, 7:30am – 4:40pm Macildowie…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager/57015134" target="_blank" rel="noopener">View Full Listing</a></div>
-</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 North <small>(2 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed">
+</article></div><div class="region-section"><h3 class="region-heading">🇬🇧 North <small>(2 roles)</small></h3><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="north">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/pmo-project-co-ordinator-pre-construction-infrastructure/56898947" target="_blank" rel="noopener">PMO Project Co-ordinator Pre-Construction / Infrastructure</a></div>
 <div class="card-employer">Jonathan Lee Recruitment</div>
@@ -1254,7 +1271,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">PMO Project Co-ordinator Pre-Construction / Infrastructure - 37187384 - 41.50/hr umbrella rate Have you delivered infrastructure projects (electrical,…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/pmo-project-co-ordinator-pre-construction-infrastructure/56898947" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="north">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/interior-design-project-manager/56989282" target="_blank" rel="noopener">Interior Design Project Manager</a></div>
 <div class="card-employer">Adecco </div>
@@ -1268,7 +1285,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Interior Design Project Manager Location: Crewe Contract Type: Temporary (6 Months) with possible extensions Rate: Competitive Driving Required: Yes Are you a…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/interior-design-project-manager/56989282" target="_blank" rel="noopener">View Full Listing</a></div>
-</article></div><div class="region-section"><h3 class="region-heading">🔍 Region TBC <small>(16 roles)</small></h3><h4 class="seniority-heading">Mid-Level</h4><article class="role-card card-pipeline" data-source="reed">
+</article></div><div class="region-section"><h3 class="region-heading">🔍 Region TBC <small>(16 roles)</small></h3><h4 class="seniority-heading">Mid-Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/senior-project-engineer-e-p/56941025" target="_blank" rel="noopener">Senior Project Engineer (E&amp;P)</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1282,7 +1299,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Senior Project Engineer (E&amp;P) Location: Manchester Hybrid Working: 3 days per week onsite Contract Length: 8 Months Rate: 550 - 600 per day Umbrella IR35…</p>
 <div class="soft-note">💡 Location: M12NY — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/senior-project-engineer-e-p/56941025" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/project-manager-nex/56793827" target="_blank" rel="noopener">Project Manager - NEX</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1296,7 +1313,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Project Manager - NEX (Temp) Location: Major UK Airport (South East) Rate: 575/day - Umbrella rate Duration: 1 year Site: Minimum 3 days per week on…</p>
 <div class="soft-note">💡 Location: CM241QW — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/project-manager-nex/56793827" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed">
+</article><h4 class="seniority-heading">Junior / Coordinator Level</h4><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/facilities-project-engineer/56925191" target="_blank" rel="noopener">Facilities Project Engineer</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1309,7 +1326,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Facilities Project Engineer 12 month contract Based in Havant Offering between 38- 48ph Inside IR35 Do you hold a PRINCE2 or equivalent certification? Do you…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/facilities-project-engineer/56925191" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989096" target="_blank" rel="noopener">Assistant Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1323,7 +1340,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Assistant Project Manager Location: York or Manchester (3 days per week in the office) Rate: 321 per day Umbrella Contract: 12 Months We are seeking…</p>
 <div class="soft-note">💡 Location: YO17HP — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989096" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989048" target="_blank" rel="noopener">Assistant Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1337,7 +1354,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Assistant Project Manager Location: York or Manchester (3 days per week in the office) Rate: 321 per day Umbrella Contract: 12 Months We are seeking…</p>
 <div class="soft-note">💡 Location: M11AE — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/assistant-project-manager/56989048" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/belfast-building-construction-project-manager/56898264" target="_blank" rel="noopener">Belfast - Building &amp; Construction Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1351,7 +1368,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Building &amp; Construction Project Manager Location: Belfast Rate: 40.44 per hour (umbrella rate) Contract: 12 months Overview An opportunity for an…</p>
 <div class="soft-note">💡 Location: BT14LS — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/belfast-building-construction-project-manager/56898264" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">Building And Construction Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1365,7 +1382,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Building &amp; Construction Project Manager Belfast | 12-Month Contract | 40.44 per hour (Umbrella) | Full time onsite About the Role We are looking for an…</p>
 <div class="soft-note">💡 Location: BT14LS — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">View Full Listing</a> <span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56926870" target="_blank" rel="noopener">View Full Listing</a> <a class="source-link" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56900535" target="_blank" rel="noopener">Reed</a> · <a class="source-link" href="https://www.reed.co.uk/jobs/building-and-construction-project-manager/56926870" target="_blank" rel="noopener">Reed</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/building-construction-project-manager/56990522" target="_blank" rel="noopener">Building &amp; Construction Project Manager</a></div>
 <div class="card-employer">Meritus Talent</div>
@@ -1378,7 +1395,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">MERITUS are recruiting for a Building &amp; Construction Project Manager to join a leading aerospace and engineering organisation, delivering major construction,…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/building-construction-project-manager/56990522" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/hr-transformation-project-manager/56977173" target="_blank" rel="noopener">HR Transformation Project Manager</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1391,7 +1408,7 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">HR Transformation Project Manager Belfast 18 month contract 36.45 per hour umbrella ARM have an exciting opportunity for a HR Transformation Project Manager to…</p>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/hr-transformation-project-manager/56977173" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/configuration-project-manager-widebody/56888908" target="_blank" rel="noopener">Configuration Project Manager (Widebody)</a></div>
 <div class="card-employer">Impellam</div>
@@ -1405,7 +1422,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Widebody Configuration Project Manager (Wing) Location: Filton (hybrid - approx. 60% onsite) Contract: Contract (Inside IR35) Hours: 35 hours per week |…</p>
 <div class="soft-note">💡 Location: BS347PA — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/configuration-project-manager-widebody/56888908" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="adzuna">
+</article><article class="role-card card-pipeline" data-source="adzuna" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/details/5762595075?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">Construction Project Manager</a></div>
 <div class="card-employer">BAE Systems</div>
@@ -1419,9 +1436,9 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title\: Construction Project Manager Location: Warton/Samlesbury - On-site Salary: £42,850 (DOE) Who we are: Join BAE Systems and you’ll be part of…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
 <div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/details/5762595075?utm_medium=api&amp;utm_source=35fcac87" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="adzuna">
+</article><article class="role-card card-pipeline" data-source="adzuna" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
-<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">Project Engineer-National Grid-South Wales</a></div>
+<div class="card-title-row"><a class="card-title" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">Project Engineer-National Grid-South Wales</a></div>
 <div class="card-employer">Solution Search Limited - Civils &amp; Rail</div>
 <div class="card-location">📍 Llanpumsaint, Carmarthen</div>
 <div class="card-details">
@@ -1432,8 +1449,8 @@ footer strong { color: var(--text); }
 </div>
 <p class="card-summary">Project Engineer-South Wales-National Grid Our client are looking for a Project Engineer capable of leading &amp; managing wiremen who will be doing the…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage)</div>
-<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=GNehqG5p8RG_8ITFC2hxOQ&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+<div class="card-source-row"><span class="source-name">Adzuna</span><a class="view-listing-btn" href="https://www.adzuna.co.uk/jobs/land/ad/5765342407?se=bjxSWHFp8RGjKJIWHOfiKg&amp;utm_medium=api&amp;utm_source=35fcac87&amp;v=EAA2585CF7C758D3EC95A82BD8221FECDFEB56E2" target="_blank" rel="noopener">View Full Listing</a></div>
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/planning-manager/56885286" target="_blank" rel="noopener">Planning Manager</a></div>
 <div class="card-employer">Randstad Construction &amp; Property</div>
@@ -1447,7 +1464,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Are you ready to lead one of the most ambitious industrial transformations in Europe? This project is moving from vision to reality, and our client is looking…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: SA132NG — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/planning-manager/56885286" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">Manufacturing Project Manager / Bid Lead</a></div>
 <div class="card-employer">Certain Advantage</div>
@@ -1461,7 +1478,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">World Class Defence Organisation based in Bolton is currently looking to recruit a Manufacturing Project Manager / Bid Lead subcontractor on an initial 12…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: BL51EE — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/manufacturing-project-manager-bid-lead/56992933" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/senior-project-engineer/56897479" target="_blank" rel="noopener">Senior Project Engineer</a></div>
 <div class="card-employer">Advanced Resource Managers Limited</div>
@@ -1475,7 +1492,7 @@ footer strong { color: var(--text); }
 <p class="card-summary">Job Title: Project Engineer / Senior Project Engineer (MEP - Building Services) Location: Birmingham area (min. 3 days office-based) Duration: to 31/03/2027…</p>
 <div class="soft-note">💡 Rate: TBC — typical for UK contract market (negotiate at offer stage); Location: B46AT — region not mapped</div>
 <div class="card-source-row"><span class="source-name">Reed</span><a class="view-listing-btn" href="https://www.reed.co.uk/jobs/senior-project-engineer/56897479" target="_blank" rel="noopener">View Full Listing</a></div>
-</article><article class="role-card card-pipeline" data-source="reed">
+</article><article class="role-card card-pipeline" data-source="reed" data-region="region-tbc">
 <div class="flag-row"><span class="flag-pill flag-new">🆕 New</span><span class="flag-pill flag-warn">⚠️ Review</span></div>
 <div class="card-title-row"><a class="card-title" href="https://www.reed.co.uk/jobs/junior-project-engineer/56936275" target="_blank" rel="noopener">Junior Project Engineer</a></div>
 <div class="card-employer">Trapeze Recruitment Services Limited</div>
@@ -1497,58 +1514,76 @@ footer strong { color: var(--text); }
   <p><strong>Source coverage:</strong></p>
   <ul><li class="src-ok">✅ reed</li><li class="src-ok">✅ railwaypeople</li><li class="src-ok">✅ energy_jobline</li><li class="src-ok">✅ aviation_job_search</li><li class="src-ok">✅ adzuna</li></ul>
   <p style="margin-top:8px"><strong>Data freshness:</strong> All listings verified active as of 16 June 2026.</p>
-  <p><strong>Pipeline:</strong> 468 raw → 39 filtered → 39 deduplicated</p>
+  <p><strong>Pipeline:</strong> 472 raw → 39 filtered → 39 deduplicated</p>
 </div>
 <footer>
   <p>
-    <strong>Next Report:</strong> Friday, 23 June 2026&emsp;|&emsp;
+    <strong>Next Report:</strong> Friday, 19 June 2026&emsp;|&emsp;
     <strong>Total listings:</strong> 39&emsp;|&emsp;
-    Generated 16 June 2026 at 10:32 UTC
+    Generated 16 June 2026 at 10:51 UTC
   </p>
   <p style="margin-top:6px">Generated by Mech-PM-Finder &mdash; Report format &amp; domain notes by Polly (Reporting &amp; Domain).</p>
 </footer>
 </div>
 <script>
 (function(){
-  var bar=document.getElementById('filter-bar');
-  if(!bar)return;
-  bar.style.display='flex';
+  var srcBar=document.getElementById('filter-bar');
+  var rgnBar=document.getElementById('region-filter-bar');
+  if(srcBar)srcBar.style.display='flex';
+  if(rgnBar)rgnBar.style.display='flex';
   var allCards=document.querySelectorAll('article.role-card[data-source]');
-  var allSrc=new Set();
-  allCards.forEach(function(c){allSrc.add(c.dataset.source);});
-  var active=new Set(allSrc);
+  var allSrc=new Set(),allRgn=new Set();
+  allCards.forEach(function(c){
+    allSrc.add(c.dataset.source);
+    if(c.dataset.region)allRgn.add(c.dataset.region);
+  });
+  var activeSrc=new Set(allSrc),activeRgn=new Set(allRgn);
   function applyFilter(){
     var vis=0,tot=allCards.length;
     allCards.forEach(function(c){
-      var show=active.has(c.dataset.source);
+      var show=activeSrc.has(c.dataset.source)&&(!c.dataset.region||activeRgn.has(c.dataset.region));
       c.style.display=show?'':'none';
       if(show)vis++;
     });
     var lbl=document.getElementById('filter-count');
     if(lbl)lbl.textContent=vis===tot?'Showing all '+tot+' listings':'Showing '+vis+' of '+tot+' listings';
     document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
-      var on=active.has(b.dataset.src);
+      var on=activeSrc.has(b.dataset.src);
       b.classList.toggle('active',on);
       b.classList.toggle('inactive',!on);
       b.setAttribute('aria-pressed',on?'true':'false');
     });
     var ab=document.getElementById('filter-btn-all');
-    if(ab){
-      var isAll=active.size===allSrc.size;
-      ab.classList.toggle('active',isAll);
-      ab.classList.toggle('inactive',!isAll);
-    }
+    if(ab){var isAll=activeSrc.size===allSrc.size;ab.classList.toggle('active',isAll);ab.classList.toggle('inactive',!isAll);}
+    document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
+      var on=activeRgn.has(b.dataset.rgn);
+      b.classList.toggle('active',on);
+      b.classList.toggle('inactive',!on);
+      b.setAttribute('aria-pressed',on?'true':'false');
+    });
+    var rb=document.getElementById('filter-btn-all-rgn');
+    if(rb){var isAllR=activeRgn.size===allRgn.size;rb.classList.toggle('active',isAllR);rb.classList.toggle('inactive',!isAllR);}
   }
   document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
     b.addEventListener('click',function(){
       var s=b.dataset.src;
-      if(active.has(s)){if(active.size>1)active.delete(s);}
-      else{active.add(s);}
+      if(activeSrc.has(s)){if(activeSrc.size>1)activeSrc.delete(s);}
+      else{activeSrc.add(s);}
       applyFilter();
     });
   });
   var ab=document.getElementById('filter-btn-all');
-  if(ab)ab.addEventListener('click',function(){active=new Set(allSrc);applyFilter();});
+  if(ab)ab.addEventListener('click',function(){activeSrc=new Set(allSrc);applyFilter();});
+  document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var r=b.dataset.rgn;
+      if(activeRgn.has(r)){if(activeRgn.size>1)activeRgn.delete(r);}
+      else{activeRgn.add(r);}
+      applyFilter();
+    });
+  });
+  var rb=document.getElementById('filter-btn-all-rgn');
+  if(rb)rb.addEventListener('click',function(){activeRgn=new Set(allRgn);applyFilter();});
   applyFilter();
 })();
 </script>

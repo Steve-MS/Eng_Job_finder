@@ -14,7 +14,7 @@ Section order:
 from __future__ import annotations
 
 import textwrap
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -56,6 +56,29 @@ _REGION_FLAGS: dict[str, str] = {
     "Other":      "🇬🇧 Other UK",
     "Region TBC": "🔍 Region TBC",
 }
+
+# ---------------------------------------------------------------------------
+# Date helpers
+# ---------------------------------------------------------------------------
+
+
+def _next_friday_from(today: date) -> date:
+    """Return the next Friday strictly after *today*.
+
+    If *today* is already a Friday, returns the Friday 7 days hence so
+    the footer always points to the *next* scheduled run, not the current one.
+
+    >>> from datetime import date
+    >>> _next_friday_from(date(2026, 6, 16))  # Tuesday → Friday same week
+    datetime.date(2026, 6, 19)
+    >>> _next_friday_from(date(2026, 6, 19))  # Friday → next Friday
+    datetime.date(2026, 6, 26)
+    """
+    days_until_friday = (4 - today.weekday()) % 7  # Friday == weekday 4
+    if days_until_friday == 0:
+        days_until_friday = 7
+    return today + timedelta(days=days_until_friday)
+
 
 # ---------------------------------------------------------------------------
 # Markdown helpers
@@ -534,8 +557,7 @@ def _render_review_queue(
 
 
 def _render_footer(run_metadata: RunMetadata, num_flagged: int = 0) -> list[str]:
-    from datetime import timedelta
-    next_report = run_metadata.date_range_end + timedelta(days=7)
+    next_report = _next_friday_from(date.today())
     next_label = f"{next_report.day} {next_report.strftime('%B')} {next_report.year}"
 
     # Source breakdown.
