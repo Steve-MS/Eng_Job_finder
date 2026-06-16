@@ -390,6 +390,45 @@ footer {
     line-height: 1.8;
 }
 footer strong { color: var(--text); }
+
+/* ---- Source filter bar ---- */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.filter-bar-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-right: 4px;
+}
+.filter-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 9999px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    background: var(--tag-bg);
+    color: var(--muted);
+    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+    line-height: 1.4;
+}
+.filter-btn.inactive { opacity: 0.38; }
+.filter-btn[data-src="reed"].active            { background:#dbeafe; color:#1d4ed8; border-color:#1d4ed8; }
+.filter-btn[data-src="adzuna"].active          { background:#dcfce7; color:#15803d; border-color:#15803d; }
+.filter-btn[data-src="energy-jobline"].active  { background:#ffedd5; color:#c2410c; border-color:#c2410c; }
+.filter-btn[data-src="railwaypeople"].active   { background:#ccfbf1; color:#0f766e; border-color:#0f766e; }
+.filter-btn[data-src="aviation-job-search"].active { background:#f3e8ff; color:#7e22ce; border-color:#7e22ce; }
+.filter-btn-all.active { background:#f1f5f9; color:var(--text); border-color:#374151; opacity:1; }
+.filter-count-label { font-size: 12px; color: var(--muted); margin-left: auto; font-style: italic; }
 """
 
 # ---------------------------------------------------------------------------
@@ -408,6 +447,128 @@ def _truncate_plain(text: str, max_chars: int) -> str:
     t = text[:max_chars]
     idx = t.rfind(" ")
     return (t[:idx] if idx > max_chars // 2 else t) + "…"
+
+
+# ---------------------------------------------------------------------------
+# Source helpers
+# ---------------------------------------------------------------------------
+
+_SOURCE_DISPLAY_NAMES: dict[str, str] = {
+    "reed":                 "Reed",
+    "adzuna":               "Adzuna",
+    "energy-jobline":       "Energy Jobline",
+    "railwaypeople":        "RailwayPeople",
+    "aviation-job-search":  "Aviation Job Search",
+    "the-engineer":         "The Engineer",
+    "totaljobs":            "Totaljobs",
+    "cwjobs":               "CWJobs",
+    "linkedin":             "LinkedIn",
+}
+
+
+def _source_id(listing: NormalizedListing) -> str:
+    """Return a kebab-case source identifier suitable for data-source attribute."""
+    return (listing.source or "unknown").replace("_", "-").lower()
+
+
+def _source_display_name(sid: str) -> str:
+    return _SOURCE_DISPLAY_NAMES.get(sid, sid.replace("-", " ").title())
+
+
+# ---------------------------------------------------------------------------
+# Filter bar
+# ---------------------------------------------------------------------------
+
+def _render_filter_bar(listings: list[NormalizedListing]) -> str:
+    """Render the source filter pill bar.
+
+    The bar is hidden by default (style="display:none") and shown by the
+    embedded JavaScript on DOMContentLoaded.  With JS disabled all cards
+    remain visible and the bar stays hidden — progressive enhancement.
+    """
+    from collections import Counter
+
+    counts: Counter[str] = Counter(_source_id(l) for l in listings)
+    if not counts:
+        return ""
+
+    total = sum(counts.values())
+    sources_sorted = sorted(counts.items(), key=lambda x: -x[1])
+
+    all_btn = (
+        '<button class="filter-btn filter-btn-all active" id="filter-btn-all" aria-pressed="true">'
+        "All"
+        "</button>"
+    )
+    source_btns = "".join(
+        f'<button class="filter-btn active" data-src="{_h(sid)}" aria-pressed="true">'
+        f"{_h(_source_display_name(sid))} ({cnt})"
+        f"</button>"
+        for sid, cnt in sources_sorted
+    )
+    counter = (
+        f'<span id="filter-count" class="filter-count-label">'
+        f"Showing all {total} listings</span>"
+    )
+
+    return (
+        f'<div id="filter-bar" style="display:none">\n'
+        f'  <span class="filter-bar-label">Filter by source:</span>\n'
+        f"  {all_btn}\n"
+        f"  {source_btns}\n"
+        f"  {counter}\n"
+        f"</div>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Embedded filter JavaScript
+# ---------------------------------------------------------------------------
+
+_FILTER_JS = """<script>
+(function(){
+  var bar=document.getElementById('filter-bar');
+  if(!bar)return;
+  bar.style.display='flex';
+  var allCards=document.querySelectorAll('article.role-card[data-source]');
+  var allSrc=new Set();
+  allCards.forEach(function(c){allSrc.add(c.dataset.source);});
+  var active=new Set(allSrc);
+  function applyFilter(){
+    var vis=0,tot=allCards.length;
+    allCards.forEach(function(c){
+      var show=active.has(c.dataset.source);
+      c.style.display=show?'':'none';
+      if(show)vis++;
+    });
+    var lbl=document.getElementById('filter-count');
+    if(lbl)lbl.textContent=vis===tot?'Showing all '+tot+' listings':'Showing '+vis+' of '+tot+' listings';
+    document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
+      var on=active.has(b.dataset.src);
+      b.classList.toggle('active',on);
+      b.classList.toggle('inactive',!on);
+      b.setAttribute('aria-pressed',on?'true':'false');
+    });
+    var ab=document.getElementById('filter-btn-all');
+    if(ab){
+      var isAll=active.size===allSrc.size;
+      ab.classList.toggle('active',isAll);
+      ab.classList.toggle('inactive',!isAll);
+    }
+  }
+  document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var s=b.dataset.src;
+      if(active.has(s)){if(active.size>1)active.delete(s);}
+      else{active.add(s);}
+      applyFilter();
+    });
+  });
+  var ab=document.getElementById('filter-btn-all');
+  if(ab)ab.addEventListener('click',function(){active=new Set(allSrc);applyFilter();});
+  applyFilter();
+})();
+</script>"""
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +665,7 @@ def _role_card(
     start = _h(_start_str_safe(listing.start_date, today))
     flags = _flag_pills(listing, today)
 
-    lines.append(f'<article class="role-card {card_class}">')
+    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}">')
 
     if flags:
         lines.append(flags)
@@ -805,6 +966,7 @@ def render_weekly_html(
     # Build document body.
     body_parts: list[str] = [
         _render_html_header(run_metadata, clean, flagged),
+        _render_filter_bar(listings),
         _render_html_new_section(new_listings, today),
         _render_html_premium_section(premium_listings, today),
         _render_html_urgent_section(urgent_listings, today),
@@ -830,6 +992,7 @@ def render_weekly_html(
 <div class="report-wrap">
 {body_html}
 </div>
+{_FILTER_JS}
 </body>
 </html>"""
 

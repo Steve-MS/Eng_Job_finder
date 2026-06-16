@@ -337,3 +337,79 @@ def test_hourly_rate_displays_per_hr(tmp_path: Path) -> None:
     out = render_weekly_html([listing], meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
     assert "£46/hr" in content, "Hourly rate must display with /hr suffix in HTML"
+
+
+# ---------------------------------------------------------------------------
+# Test 11: every card has a data-source attribute
+# ---------------------------------------------------------------------------
+
+def test_every_card_has_data_source_attribute(tmp_path: Path) -> None:
+    """Every <article class="role-card"> must carry a data-source attribute."""
+    listings = [
+        _make_listing(source_listing_id="c1", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/c1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/c1"]),
+        _make_listing(source_listing_id="c2", source="adzuna",
+                      source_url="https://www.adzuna.co.uk/jobs/c2",
+                      source_urls=["https://www.adzuna.co.uk/jobs/c2"]),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    import re
+    # Count role-card article tags and data-source attributes on them
+    card_tags = re.findall(r'<article[^>]*class="[^"]*role-card[^"]*"[^>]*>', content)
+    assert len(card_tags) >= 2, "Expected at least 2 role-card articles"
+    for tag in card_tags:
+        assert 'data-source="' in tag, f"Card missing data-source attribute: {tag}"
+
+
+# ---------------------------------------------------------------------------
+# Test 12: filter bar lists all unique sources from input
+# ---------------------------------------------------------------------------
+
+def test_filter_bar_lists_all_unique_sources(tmp_path: Path) -> None:
+    """The filter bar must contain one button per unique source in the data."""
+    listings = [
+        _make_listing(source_listing_id="r1", source="reed",
+                      source_url="https://www.reed.co.uk/jobs/pm/r1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/r1"]),
+        _make_listing(source_listing_id="a1", source="adzuna",
+                      source_url="https://www.adzuna.co.uk/jobs/a1",
+                      source_urls=["https://www.adzuna.co.uk/jobs/a1"]),
+        _make_listing(source_listing_id="a2", source="adzuna",
+                      source_url="https://www.adzuna.co.uk/jobs/a2",
+                      source_urls=["https://www.adzuna.co.uk/jobs/a2"]),
+        _make_listing(source_listing_id="e1", source="energy_jobline",
+                      source_url="https://www.energyjobline.com/jobs/e1",
+                      source_urls=["https://www.energyjobline.com/jobs/e1"]),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    # All three unique sources must appear as filter buttons in the filter bar
+    assert 'data-src="reed"' in content, "Reed filter button missing"
+    assert 'data-src="adzuna"' in content, "Adzuna filter button missing"
+    assert 'data-src="energy-jobline"' in content, "Energy Jobline filter button missing"
+    # Adzuna count badge should show 2
+    assert "Adzuna (2)" in content, "Adzuna count badge should show 2"
+
+
+# ---------------------------------------------------------------------------
+# Test 13: embedded script block with filter logic is present
+# ---------------------------------------------------------------------------
+
+def test_filter_script_block_present(tmp_path: Path) -> None:
+    """The HTML must contain a <script> block with the applyFilter function."""
+    listing = _make_listing()
+    meta = _make_run_metadata([listing])
+    out = render_weekly_html([listing], meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    assert "<script>" in content, "<script> block must be embedded in the HTML"
+    assert "applyFilter" in content, "Filter JS must define/call applyFilter"
+    assert "filter-bar" in content, "Filter JS must reference filter-bar element"
+    assert "data-source" in content, "Filter JS must reference data-source attribute"
+
