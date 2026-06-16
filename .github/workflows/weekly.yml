@@ -59,7 +59,9 @@ jobs:
           git add reports/
           git add -f data/mechpm.sqlite
           git diff --cached --quiet && echo "No changes to commit" || \
-            git commit -m "chore: weekly report $(date -u +%Y-%m-%d)" && git push
+            (git commit -m "chore: weekly report $(date -u +%Y-%m-%d)" && \
+             git pull --rebase origin main && \
+             git push)
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
