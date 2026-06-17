@@ -36,6 +36,8 @@ def _get_registry() -> dict:
         from mechpm.adapters.the_engineer import TheEngineerAdapter
         from mechpm.adapters.stepstone import StepStoneAdapter
         from mechpm.adapters.adzuna import AdzunaAdapter
+        from mechpm.adapters.phenom import PhenomAdapter
+        from mechpm.adapters.michael_page import MichaelPageAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -44,6 +46,9 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["totaljobs"] = StepStoneAdapter
         _ADAPTER_REGISTRY["cwjobs"] = StepStoneAdapter
         _ADAPTER_REGISTRY["adzuna"] = AdzunaAdapter
+        _ADAPTER_REGISTRY["bam_careers"] = PhenomAdapter
+        _ADAPTER_REGISTRY["mace_group"] = PhenomAdapter
+        _ADAPTER_REGISTRY["michael_page"] = MichaelPageAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -128,6 +133,37 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     location=cfg.location,
                     contract_type=extra_ejl.get("contract_type", "contract"),
                     max_pages_per_query=extra_ejl.get("max_pages_per_query", 5),
+                )
+            )
+        elif name in ("bam_careers", "mace_group"):
+            extra_ph: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            domain = extra_ph.get("domain", "")
+            site_path = extra_ph.get("site_path", "")
+            employer_name = extra_ph.get("employer_name", name)
+            if not domain or not site_path:
+                log.warning(
+                    "Source '%s' missing 'domain' or 'site_path' in config.toml — skipping.",
+                    name,
+                )
+                continue
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    name=name,
+                    domain=domain,
+                    site_path=site_path,
+                    employer_name=employer_name,
+                    keywords_list=cfg.keywords_list,
+                    crawl_delay=cfg.crawl_delay,
+                    max_pages_per_query=extra_ph.get("max_pages_per_query", 5),
+                )
+            )
+        elif name == "michael_page":
+            extra_mp: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_mp.get("max_pages_per_query", 3),
                 )
             )
         else:
