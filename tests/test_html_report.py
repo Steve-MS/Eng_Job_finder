@@ -516,3 +516,105 @@ def test_card_has_both_source_and_region_attributes(tmp_path: Path) -> None:
         assert 'data-region="midlands"' in tag, (
             f"Birmingham should map to midlands, got: {tag}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Test 18: every card has a data-jobtype attribute
+# ---------------------------------------------------------------------------
+
+def test_every_card_has_data_jobtype_attribute(tmp_path: Path) -> None:
+    """Every <article class="role-card"> must carry a data-jobtype attribute."""
+    listings = [
+        _make_listing(source_listing_id="jt1", title="Senior Project Manager – Mechanical",
+                      source_url="https://www.reed.co.uk/jobs/pm/jt1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jt1"]),
+        _make_listing(source_listing_id="jt2", title="Document Controller",
+                      source_url="https://www.reed.co.uk/jobs/pm/jt2",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jt2"]),
+        _make_listing(source_listing_id="jt3", title="Quality Assurance Engineer",
+                      source_url="https://www.reed.co.uk/jobs/pm/jt3",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jt3"]),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    import re
+    card_tags = re.findall(r'<article[^>]*class="[^"]*role-card[^"]*"[^>]*>', content)
+    assert len(card_tags) >= 3, "Expected at least 3 role-card articles"
+    for tag in card_tags:
+        assert 'data-jobtype="' in tag, f"Card missing data-jobtype attribute: {tag}"
+
+
+# ---------------------------------------------------------------------------
+# Test 19: job type filter bar lists expected job types
+# ---------------------------------------------------------------------------
+
+def test_jobtype_filter_bar_lists_expected_types(tmp_path: Path) -> None:
+    """Job type filter bar must contain one button per unique job type in the data."""
+    listings = [
+        _make_listing(source_listing_id="jb1", title="Senior Project Manager",
+                      source_url="https://www.reed.co.uk/jobs/pm/jb1",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jb1"]),
+        _make_listing(source_listing_id="jb2", title="Project Engineer",
+                      source_url="https://www.reed.co.uk/jobs/pm/jb2",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jb2"]),
+        _make_listing(source_listing_id="jb3", title="Document Controller",
+                      source_url="https://www.reed.co.uk/jobs/pm/jb3",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jb3"]),
+        _make_listing(source_listing_id="jb4", title="Senior Project Manager 2",
+                      source_url="https://www.reed.co.uk/jobs/pm/jb4",
+                      source_urls=["https://www.reed.co.uk/jobs/pm/jb4"]),
+    ]
+    meta = _make_run_metadata(listings)
+    out = render_weekly_html(listings, meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    assert 'id="jobtype-filter-bar"' in content, "Job type filter bar div must be present"
+    assert 'data-jt="project-manager"' in content, "Project Manager button missing"
+    assert 'data-jt="project-engineer"' in content, "Project Engineer button missing"
+    assert 'data-jt="document-controller"' in content, "Document Controller button missing"
+    assert "Project Manager (2)" in content, "Project Manager count badge should show 2"
+
+
+# ---------------------------------------------------------------------------
+# Test 20: classify_job_type classification logic
+# ---------------------------------------------------------------------------
+
+def test_classify_job_type_logic() -> None:
+    """Verify the classification function maps titles to the right categories."""
+    from mechpm.reporter.html_render import classify_job_type
+
+    assert classify_job_type("Senior Project Engineer") == "Project Engineer"
+    assert classify_job_type("Document Controller") == "Document Controller"
+    assert classify_job_type("Quality Assurance Engineer") == "Assurance"
+    assert classify_job_type("Project Manager") == "Project Manager"
+    assert classify_job_type("Programme Manager") == "Project Manager"
+    assert classify_job_type("Construction Manager – M&E") == "Project Manager"
+    assert classify_job_type("Commissioning Manager") == "Project Manager"
+    assert classify_job_type("Project Planner") == "Planner"
+    assert classify_job_type("Planning Engineer (Nuclear)") == "Planner"
+    assert classify_job_type("Site Manager (Mechanical)") == "Site Manager"
+    assert classify_job_type("Mechanical Site Manager") == "Site Manager"
+    assert classify_job_type("Safety Assurance Lead") == "Assurance"
+    assert classify_job_type("SQA Manager") == "Assurance"
+    assert classify_job_type("Records Controller") == "Document Controller"
+    assert classify_job_type("Lead Project Engineer") == "Project Engineer"
+    assert classify_job_type("Field Technician") == "Other"
+
+
+# ---------------------------------------------------------------------------
+# Test 21: job type filter JS references data-jobtype and data-jt
+# ---------------------------------------------------------------------------
+
+def test_jobtype_filter_js_present(tmp_path: Path) -> None:
+    """The embedded script must contain job-type filter logic."""
+    listing = _make_listing()
+    meta = _make_run_metadata([listing])
+    out = render_weekly_html([listing], meta, tmp_path / "report.html")
+    content = out.read_text(encoding="utf-8")
+
+    assert "data-jt" in content, "Filter JS must reference data-jt attribute"
+    assert "activeJobType" in content, "Filter JS must maintain activeJobType state"
+    assert "jobtype-filter-bar" in content, "Filter JS must reference jobtype-filter-bar"
+    assert "data-jobtype" in content, "Cards must carry data-jobtype attribute"

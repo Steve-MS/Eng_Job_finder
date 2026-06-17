@@ -443,6 +443,16 @@ footer strong { color: var(--text); }
 .filter-btn[data-rgn="remote"].active     { background:#e0e7ff; color:#4338ca; border-color:#4338ca; }
 .filter-btn[data-rgn="other"].active      { background:#f1f5f9; color:#374151; border-color:#374151; }
 .filter-btn[data-rgn="region-tbc"].active { background:#f1f5f9; color:#374151; border-color:#374151; }
+
+/* ---- Job type filter bar ---- */
+#jobtype-filter-bar { margin-top: -12px; }
+.filter-btn[data-jt="project-manager"].active    { background:#e0e7ff; color:#3730a3; border-color:#3730a3; }
+.filter-btn[data-jt="project-engineer"].active   { background:#dbeafe; color:#1e40af; border-color:#1e40af; }
+.filter-btn[data-jt="assurance"].active          { background:#dcfce7; color:#14532d; border-color:#14532d; }
+.filter-btn[data-jt="document-controller"].active{ background:#fef3c7; color:#92400e; border-color:#92400e; }
+.filter-btn[data-jt="site-manager"].active       { background:#fff7ed; color:#c2410c; border-color:#c2410c; }
+.filter-btn[data-jt="planner"].active            { background:#f3e8ff; color:#6b21a8; border-color:#6b21a8; }
+.filter-btn[data-jt="other"].active              { background:#f1f5f9; color:#374151; border-color:#374151; }
 """
 
 # ---------------------------------------------------------------------------
@@ -502,6 +512,63 @@ def _region_id(listing: NormalizedListing) -> str:
     """Return a kebab-case region identifier for the data-region attribute."""
     region = resolve_region(listing.location_normalized or "")
     return region.lower().replace(" ", "-")
+
+
+# ---------------------------------------------------------------------------
+# Job type classification
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_JOBTYPE_RULES: list[tuple[_re.Pattern[str], str]] = [
+    (_re.compile(r"document\s+control|records\s+control", _re.IGNORECASE), "Document Controller"),
+    (_re.compile(r"assurance|\bsqa\b", _re.IGNORECASE), "Assurance"),
+    (_re.compile(r"planner|planning\s+engineer", _re.IGNORECASE), "Planner"),
+    (_re.compile(r"site\s+manager", _re.IGNORECASE), "Site Manager"),
+    (_re.compile(r"project\s+engineer", _re.IGNORECASE), "Project Engineer"),
+    (_re.compile(r"project\s+manager|programme\s+manager|construction\s+manager|commissioning", _re.IGNORECASE), "Project Manager"),
+]
+
+_JOBTYPE_SLUG: dict[str, str] = {
+    "Project Manager":      "project-manager",
+    "Project Engineer":     "project-engineer",
+    "Assurance":            "assurance",
+    "Document Controller":  "document-controller",
+    "Site Manager":         "site-manager",
+    "Planner":              "planner",
+    "Other":                "other",
+}
+
+_JOBTYPE_ORDER: list[str] = [
+    "project-manager",
+    "project-engineer",
+    "assurance",
+    "document-controller",
+    "site-manager",
+    "planner",
+    "other",
+]
+
+_JOBTYPE_DISPLAY: dict[str, str] = {v: k for k, v in _JOBTYPE_SLUG.items()}
+
+
+def classify_job_type(title: str) -> str:
+    """Classify a job title into one of the canonical role families.
+
+    Returns one of: 'Project Manager', 'Project Engineer', 'Assurance',
+    'Document Controller', 'Site Manager', 'Planner', 'Other'.
+    First-match wins; checks are case-insensitive.
+    """
+    for pattern, category in _JOBTYPE_RULES:
+        if pattern.search(title):
+            return category
+    return "Other"
+
+
+def _jobtype_id(listing: NormalizedListing) -> str:
+    """Return a kebab-case job-type identifier for the data-jobtype attribute."""
+    category = classify_job_type(listing.title or "")
+    return _JOBTYPE_SLUG.get(category, "other")
 
 
 # ---------------------------------------------------------------------------
@@ -586,6 +653,41 @@ def _render_region_filter_bar(listings: list[NormalizedListing]) -> str:
     )
 
 
+def _render_jobtype_filter_bar(listings: list[NormalizedListing]) -> str:
+    """Render the job-type filter pill bar.
+
+    Progressive-enhancement pattern: hidden until JS runs.  Pills appear in
+    _JOBTYPE_ORDER so the display is stable across runs.
+    """
+    from collections import Counter
+
+    counts: Counter[str] = Counter(_jobtype_id(l) for l in listings)
+    if not counts:
+        return ""
+
+    jobtypes_sorted = [(jid, counts[jid]) for jid in _JOBTYPE_ORDER if jid in counts]
+
+    all_btn = (
+        '<button class="filter-btn filter-btn-all active" id="filter-btn-all-jt" aria-pressed="true">'
+        "All"
+        "</button>"
+    )
+    jt_btns = "".join(
+        f'<button class="filter-btn active" data-jt="{_h(jid)}" aria-pressed="true">'
+        f"{_h(_JOBTYPE_DISPLAY.get(jid, jid))} ({cnt})"
+        f"</button>"
+        for jid, cnt in jobtypes_sorted
+    )
+
+    return (
+        f'<div id="jobtype-filter-bar" class="filter-bar" style="display:none">\n'
+        f'  <span class="filter-bar-label">Filter by job type:</span>\n'
+        f"  {all_btn}\n"
+        f"  {jt_btns}\n"
+        f"</div>"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Embedded filter JavaScript
 # ---------------------------------------------------------------------------
@@ -594,19 +696,24 @@ _FILTER_JS = """<script>
 (function(){
   var srcBar=document.getElementById('filter-bar');
   var rgnBar=document.getElementById('region-filter-bar');
+  var jtBar=document.getElementById('jobtype-filter-bar');
   if(srcBar)srcBar.style.display='flex';
   if(rgnBar)rgnBar.style.display='flex';
+  if(jtBar)jtBar.style.display='flex';
   var allCards=document.querySelectorAll('article.role-card[data-source]');
-  var allSrc=new Set(),allRgn=new Set();
+  var allSrc=new Set(),allRgn=new Set(),allJt=new Set();
   allCards.forEach(function(c){
     allSrc.add(c.dataset.source);
     if(c.dataset.region)allRgn.add(c.dataset.region);
+    if(c.dataset.jobtype)allJt.add(c.dataset.jobtype);
   });
-  var activeSrc=new Set(allSrc),activeRgn=new Set(allRgn);
+  var activeSrc=new Set(allSrc),activeRgn=new Set(allRgn),activeJobType=new Set(allJt);
   function applyFilter(){
     var vis=0,tot=allCards.length;
     allCards.forEach(function(c){
-      var show=activeSrc.has(c.dataset.source)&&(!c.dataset.region||activeRgn.has(c.dataset.region));
+      var show=activeSrc.has(c.dataset.source)
+        &&(!c.dataset.region||activeRgn.has(c.dataset.region))
+        &&(!c.dataset.jobtype||activeJobType.has(c.dataset.jobtype));
       c.style.display=show?'':'none';
       if(show)vis++;
     });
@@ -628,6 +735,14 @@ _FILTER_JS = """<script>
     });
     var rb=document.getElementById('filter-btn-all-rgn');
     if(rb){var isAllR=activeRgn.size===allRgn.size;rb.classList.toggle('active',isAllR);rb.classList.toggle('inactive',!isAllR);}
+    document.querySelectorAll('.filter-btn[data-jt]').forEach(function(b){
+      var on=activeJobType.has(b.dataset.jt);
+      b.classList.toggle('active',on);
+      b.classList.toggle('inactive',!on);
+      b.setAttribute('aria-pressed',on?'true':'false');
+    });
+    var jb=document.getElementById('filter-btn-all-jt');
+    if(jb){var isAllJ=activeJobType.size===allJt.size;jb.classList.toggle('active',isAllJ);jb.classList.toggle('inactive',!isAllJ);}
   }
   document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
     b.addEventListener('click',function(){
@@ -649,6 +764,16 @@ _FILTER_JS = """<script>
   });
   var rb=document.getElementById('filter-btn-all-rgn');
   if(rb)rb.addEventListener('click',function(){activeRgn=new Set(allRgn);applyFilter();});
+  document.querySelectorAll('.filter-btn[data-jt]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var j=b.dataset.jt;
+      if(activeJobType.has(j)){if(activeJobType.size>1)activeJobType.delete(j);}
+      else{activeJobType.add(j);}
+      applyFilter();
+    });
+  });
+  var jb=document.getElementById('filter-btn-all-jt');
+  if(jb)jb.addEventListener('click',function(){activeJobType=new Set(allJt);applyFilter();});
   applyFilter();
 })();
 </script>"""
@@ -748,7 +873,7 @@ def _role_card(
     start = _h(_start_str_safe(listing.start_date, today))
     flags = _flag_pills(listing, today)
 
-    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}" data-region="{_h(_region_id(listing))}">')
+    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}" data-region="{_h(_region_id(listing))}" data-jobtype="{_h(_jobtype_id(listing))}">')
 
     if flags:
         lines.append(flags)
@@ -1051,6 +1176,7 @@ def render_weekly_html(
         _render_html_header(run_metadata, clean, flagged),
         _render_filter_bar(listings),
         _render_region_filter_bar(listings),
+        _render_jobtype_filter_bar(listings),
         _render_html_new_section(new_listings, today),
         _render_html_premium_section(premium_listings, today),
         _render_html_urgent_section(urgent_listings, today),
