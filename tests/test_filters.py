@@ -205,8 +205,8 @@ def test_gold_set_fixture_counts():
             and not f.name.endswith(".dedup_expected.json")
         )
 
-    assert counts["positive"] == 18, f"Expected 18 positives, got {counts['positive']}"
-    assert counts["negative"] == 20, f"Expected 20 negatives, got {counts['negative']}"
+    assert counts["positive"] == 27, f"Expected 27 positives, got {counts['positive']}"
+    assert counts["negative"] == 22, f"Expected 22 negatives, got {counts['negative']}"
     assert counts["edge_cases"] == 7, f"Expected 7 edge cases, got {counts['edge_cases']}"
     assert counts["duplicate_pairs"] == 6, (
         f"Expected 6 dup-pair files (3 pairs × 2), got {counts['duplicate_pairs']}"

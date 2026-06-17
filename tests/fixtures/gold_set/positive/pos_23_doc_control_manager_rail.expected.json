@@ -1,0 +1,26 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "inside",
+    "day_rate_min": 380.0,
+    "day_rate_max": 420.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 48,
+    "sector": "rail"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "rail",
+    "difficulty": "structured",
+    "notes": "v0.3: 'document control manager' matches new PM_TITLE_RE alternation 'document\\s+control\\s+(?:manager|lead)'. Adzuna source; sector=rail from keyword scoring (HS2, signalling, Network Rail, permanent way). Inside IR35."
+  }
+}

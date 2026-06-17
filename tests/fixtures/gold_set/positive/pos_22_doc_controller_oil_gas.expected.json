@@ -1,0 +1,26 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "outside",
+    "day_rate_min": 280.0,
+    "day_rate_max": 320.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 36,
+    "sector": "energy"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "energy",
+    "difficulty": "structured",
+    "notes": "v0.3: 'document controller' is a new PM_TITLE_RE alternation. Reed source; sector=energy from keyword scoring (offshore, oil and gas, piping, P&ID). Outside IR35."
+  }
+}

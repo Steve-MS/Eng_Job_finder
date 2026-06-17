@@ -75,6 +75,8 @@ _RELEVANT_PATTERNS = [
     re.compile(r"project[_-]coord", re.I),
     re.compile(r"engineering[_-]manager", re.I),  # NEW: eng manager roles
     re.compile(r"program[_-]manager", re.I),       # NEW: US spelling in slugs
+    re.compile(r"assurance[_-]", re.I),            # NEW: assurance engineer/manager slugs
+    re.compile(r"document[_-]control", re.I),      # NEW: document controller/control manager slugs
 ]
 
 # Captures (loc, optional lastmod) from each <url> block in the sitemap XML.

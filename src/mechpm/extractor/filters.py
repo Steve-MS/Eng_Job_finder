@@ -62,6 +62,20 @@ PM_TITLE_RE = re.compile(
     r"|project\s+controls?\s+(?:manager|engineer|lead|specialist)"  # "Project Controls Manager"
     r"|cost\s+control\s+(?:engineer|manager|specialist|lead)"       # "Cost Control Engineer" (energy PM-controls)
     r"|contracts?\s+engineer"                # "Contracts Engineer" (contract admin = PM function in energy)
+    # --- NEW (v0.3): Assurance family ---
+    # Precision backstop: passes_mechanical rejects IT/cyber assurance (no mech keywords).
+    r"|assurance\s+(?:manager|engineer|lead|advisor)"  # "Assurance Manager/Engineer/Lead/Advisor"
+    r"|quality\s+assurance"                            # "Quality Assurance (Engineer/Manager)"
+    r"|safety\s+assurance"                             # "Safety Assurance Engineer"
+    r"|nuclear\s+assurance"                            # "Nuclear Assurance Manager"
+    r"|independent\s+assurance"                        # "Independent Assurance Lead"
+    r"|\bsqa\b"                                        # SQA = Safety/Quality Assurance abbreviation
+    # --- NEW (v0.3): Document Controller family ---
+    # Precision backstop: passes_mechanical rejects software/IT doc controllers.
+    r"|document\s+controller"                          # "Document Controller"
+    r"|document\s+control\s+(?:manager|lead)"          # "Document Control Manager/Lead"
+    r"|document\s+management"                          # "Document Management (Officer/Lead)"
+    r"|records\s+(?:controller|manager)"               # "Records Controller/Manager"
     r")\b",
     re.IGNORECASE,
 )

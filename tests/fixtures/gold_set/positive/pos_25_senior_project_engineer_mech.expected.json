@@ -1,0 +1,27 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "outside",
+    "day_rate_min": 600.0,
+    "day_rate_max": null,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 48,
+    "asap_flag": true,
+    "sector": "energy"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "energy",
+    "difficulty": "structured",
+    "notes": "v0.3: 'senior project engineer' matches existing PM_TITLE_RE alternation 'project engineer' (re.search finds substring). energy_jobline source-default sector=energy. Offshore mechanical package delivery scope. Outside IR35."
+  }
+}

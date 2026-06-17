@@ -14,6 +14,9 @@ keywords_list = [
     "project manager HVAC",
     "project manager M&E building services",
     "engineering project manager contract",
+    "assurance engineer mechanical",
+    "document controller engineering",
+    "project engineer mechanical",
 ]
 location = ""
 
@@ -58,6 +61,8 @@ keywords_list = [
     "project manager HVAC M&E",
     "project manager energy oil gas",
     "project engineer mechanical offshore",
+    "assurance engineer",
+    "document controller",
 ]
 
 [sources.the_engineer]
@@ -78,7 +83,7 @@ max_pages = 4
 safety_cap = 200
 
 # OR query — matches listings containing ANY of these terms
-what_or = "project manager mechanical HVAC M&E building services engineering"
+what_or = "project manager mechanical HVAC M&E building services engineering assurance controller"
 # Exclude — kills IT/software noise at source
 what_exclude = "software developer devops cloud SAP ERP digital IT"
 contract = 1

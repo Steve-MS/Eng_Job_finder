@@ -1,0 +1,25 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "day_rate_min": 200.0,
+    "day_rate_max": 240.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 24,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": false,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "not_mech_eng_domain",
+    "fail_filter": "mech_filter",
+    "notes": "v0.3: 'document controller' now matches PM_TITLE_RE (pm_filter=true). Must still fail mech_filter: sector=generalist, mech_score=0. Software product documentation — Confluence, agile, sprint, ERP. No mechanical engineering content whatsoever."
+  }
+}

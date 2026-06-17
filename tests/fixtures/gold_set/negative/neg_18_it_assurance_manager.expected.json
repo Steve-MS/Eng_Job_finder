@@ -1,0 +1,26 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "outside",
+    "day_rate_min": 700.0,
+    "day_rate_max": 800.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 48,
+    "sector": "generalist"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": false,
+    "overall_pass": false
+  },
+  "meta": {
+    "category": "negative",
+    "fail_reason": "not_mech_eng_domain",
+    "fail_filter": "mech_filter",
+    "notes": "v0.3: 'assurance manager' now matches PM_TITLE_RE (pm_filter=true). Must still fail mech_filter: sector=generalist, mech_score=0 (no mechanical keywords in title/description). IT audit, cyber security, SAP controls — no mechanical engineering content whatsoever."
+  }
+}

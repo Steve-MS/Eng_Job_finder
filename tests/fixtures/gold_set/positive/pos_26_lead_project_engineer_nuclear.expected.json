@@ -1,0 +1,26 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "outside",
+    "day_rate_min": 650.0,
+    "day_rate_max": 700.0,
+    "rate_currency": "GBP",
+    "rate_period": "day",
+    "duration_weeks": 72,
+    "sector": "nuclear"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "sector": "nuclear",
+    "difficulty": "structured",
+    "notes": "v0.3: 'lead project engineer' matches existing PM_TITLE_RE alternation 'project engineer' (re.search finds substring). Adzuna source; sector=nuclear from keyword scoring (nuclear, NDA, decommissioning, Dounreay, reactor). Outside IR35."
+  }
+}
