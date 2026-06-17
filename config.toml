@@ -106,6 +106,21 @@ keywords_list = [
     "programme-manager",
 ]
 
+[sources.manpower_group]
+enabled = true
+crawl_delay = 5
+# Manpower Group search: standard HTML, 6 results/page, ~3 pages per query.
+# No contract-type URL filter — contract_type_raw is None in search cards;
+# the extractor scans description snippets for perm/contract signals.
+max_pages_per_query = 5
+keywords_list = [
+    "project manager engineering",
+    "project engineer mechanical",
+    "project director",
+    "document controller",
+    "assurance engineer",
+]
+
 # Phenom ATS platform — BAM Careers + Mace Group
 # Both sites run Phenom People (same tech: phenomtrack.min.js, /widgets endpoint).
 # Confirmed live recon 2026-06-17: 200 OK, no bot protection, jobs embedded as JSON.
@@ -138,4 +153,24 @@ keywords_list = [
     "project engineer",
     "document controller",
     "assurance",
+]
+
+# Turner & Townsend — SmartRecruiters-backed JSON API (no auth required).
+# POST /api/careers/searchvacancies with countries: ["United Kingdom"].
+# robots.txt: permissive (only /umbraco/ and auth paths blocked).
+# enrich_detail: GET each listing's SmartRecruiters ref URL for contract_type
+# and full job description. Adds ~1 s per listing; disabled by default.
+[sources.turner_townsend]
+enabled = true
+crawl_delay = 3
+max_pages_per_query = 5
+enrich_detail = false
+keywords_list = [
+    "project manager",
+    "project director",
+    "construction manager",
+    "commissioning manager",
+    "project engineer",
+    "programme manager",
+    "contracts manager",
 ]

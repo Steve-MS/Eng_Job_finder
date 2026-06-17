@@ -38,6 +38,8 @@ def _get_registry() -> dict:
         from mechpm.adapters.adzuna import AdzunaAdapter
         from mechpm.adapters.phenom import PhenomAdapter
         from mechpm.adapters.michael_page import MichaelPageAdapter
+        from mechpm.adapters.manpower_group import ManpowerGroupAdapter
+        from mechpm.adapters.turner_townsend import TurnerTownsendAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -49,6 +51,8 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["bam_careers"] = PhenomAdapter
         _ADAPTER_REGISTRY["mace_group"] = PhenomAdapter
         _ADAPTER_REGISTRY["michael_page"] = MichaelPageAdapter
+        _ADAPTER_REGISTRY["manpower_group"] = ManpowerGroupAdapter
+        _ADAPTER_REGISTRY["turner_townsend"] = TurnerTownsendAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -164,6 +168,25 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     crawl_delay=cfg.crawl_delay,
                     keywords_list=cfg.keywords_list,
                     max_pages_per_query=extra_mp.get("max_pages_per_query", 3),
+                )
+            )
+        elif name == "manpower_group":
+            extra_mpg: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_mpg.get("max_pages_per_query", 5),
+                )
+            )
+        elif name == "turner_townsend":
+            extra_tt: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_tt.get("max_pages_per_query", 5),
+                    enrich_detail=extra_tt.get("enrich_detail", False),
                 )
             )
         else:
