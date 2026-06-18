@@ -68,15 +68,22 @@ _BROWSER_HEADERS = {
 # a PM-adjacent keyword.
 _RELEVANT_PATTERNS = [
     re.compile(r"/management/"),
-    re.compile(r"/engineering/"),              # NEW: engineering category
+    re.compile(r"/engineering/"),              # engineering category
     re.compile(r"project[_-]manag", re.I),
     re.compile(r"programme[_-]manag", re.I),
     re.compile(r"project[_-]lead", re.I),
     re.compile(r"project[_-]coord", re.I),
-    re.compile(r"engineering[_-]manager", re.I),  # NEW: eng manager roles
-    re.compile(r"program[_-]manager", re.I),       # NEW: US spelling in slugs
-    re.compile(r"assurance[_-]", re.I),            # NEW: assurance engineer/manager slugs
-    re.compile(r"document[_-]control", re.I),      # NEW: document controller/control manager slugs
+    re.compile(r"engineering[_-]manager", re.I),
+    re.compile(r"program[_-]manager", re.I),
+    re.compile(r"assurance[_-]", re.I),
+    re.compile(r"document[_-]control", re.I),
+    # v0.4 broad role expansion (2026-06-18)
+    re.compile(r"quantity[_-]survey", re.I),   # quantity-surveyor slugs
+    re.compile(r"risk[_-]manager", re.I),
+    re.compile(r"commercial[_-]manager", re.I),
+    re.compile(r"project[_-]planner", re.I),
+    re.compile(r"sustainability[_-]", re.I),
+    re.compile(r"operations[_-]director", re.I),
 ]
 
 # Captures (loc, optional lastmod) from each <url> block in the sitemap XML.

@@ -17,6 +17,16 @@ keywords_list = [
     "assurance engineer mechanical",
     "document controller engineering",
     "project engineer mechanical",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor contract",
+    "risk manager engineering contract",
+    "commercial manager contract",
+    "operations director contract",
+    "sustainability lead contract",
+    "executive coach contract",
+    "bid writer tender writer contract",
+    "business improvement manager contract",
+    "project planner mechanical",
 ]
 location = ""
 
@@ -43,6 +53,18 @@ search_path = "/jobs/project-manager/in-uk"
 [sources.railwaypeople]
 enabled = true
 crawl_delay = 10
+# v0.4 (2026-06-18): keywords_list drives multi-query search.
+# Base URL format: ?keywords={keyword}&jobtype=contract
+keywords_list = [
+    "project manager",
+    "project planner",
+    "risk manager",
+    "commercial manager",
+    "quantity surveyor",
+    "operations director",
+    "project engineer",
+    "programme manager",
+]
 
 [sources.energy_jobline]
 enabled = true
@@ -63,6 +85,12 @@ keywords_list = [
     "project engineer mechanical offshore",
     "assurance engineer",
     "document controller",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor energy",
+    "risk manager energy contract",
+    "commercial manager contract",
+    "sustainability lead energy",
+    "project planner",
 ]
 
 [sources.the_engineer]
@@ -83,7 +111,7 @@ max_pages = 4
 safety_cap = 200
 
 # OR query — matches listings containing ANY of these terms
-what_or = "project manager mechanical HVAC M&E building services engineering assurance controller"
+what_or = "project manager mechanical HVAC M&E building services engineering assurance controller quantity surveyor risk manager commercial manager sustainability operations director bid writer"
 # Exclude — kills IT/software noise at source
 what_exclude = "software developer devops cloud SAP ERP digital IT"
 contract = 1
@@ -104,6 +132,13 @@ keywords_list = [
     "project-director",
     "contracts-manager",
     "programme-manager",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity-surveyor",
+    "risk-manager",
+    "commercial-manager",
+    "project-planner",
+    "operations-director",
+    "sustainability-lead",
 ]
 
 [sources.manpower_group]
@@ -119,6 +154,13 @@ keywords_list = [
     "project director",
     "document controller",
     "assurance engineer",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "sustainability lead",
+    "bid writer",
+    "project planner",
 ]
 
 # Phenom ATS platform — BAM Careers + Mace Group
@@ -138,6 +180,11 @@ keywords_list = [
     "project engineer",
     "document controller",
     "assurance",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "project planner",
 ]
 
 [sources.mace_group]
@@ -153,6 +200,11 @@ keywords_list = [
     "project engineer",
     "document controller",
     "assurance",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "project planner",
 ]
 
 # Turner & Townsend — SmartRecruiters-backed JSON API (no auth required).
@@ -173,4 +225,11 @@ keywords_list = [
     "project engineer",
     "programme manager",
     "contracts manager",
+    # v0.4 broad role expansion (2026-06-18)
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "project planner",
+    "sustainability lead",
+    "operations director",
 ]

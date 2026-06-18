@@ -74,6 +74,56 @@ PM_TITLE_RE = re.compile(
     r"|document\s+control\s+(?:manager|lead)"          # "Document Control Manager/Lead"
     r"|document\s+management"                          # "Document Management (Officer/Lead)"
     r"|records\s+(?:controller|manager)"               # "Records Controller/Manager"
+    # --- NEW (v0.4 2026-06-18): broad role expansion ---
+    # All 16 titles bypass the mechanical check via BROAD_ROLE_RE (see below).
+    r"|programme\s+director"                 # "Programme Director", "Project Programme Director"
+    r"|quantity\s+surveyor"                  # "Quantity Surveyor" (contract QS roles)
+    r"|(?:project\s+)?cost\s+accountant"     # "Project Cost Accountant", "Cost Accountant"
+    r"|risk\s+manager"                       # "Risk Manager"
+    r"|commercial\s+manager"                 # "Commercial Manager"
+    r"|coo|chief\s+operating\s+officer"      # "COO", "Interim COO", "Chief Operating Officer"
+    r"|operations\s+director"               # "Operations Director"
+    r"|business\s+improvement\s+(?:manager|director)"  # "Business Improvement Manager/Director"
+    r"|sustainability\s+(?:lead|manager|director)"     # "Sustainability Lead/Manager/Director"
+    r"|executive\s+coach"                    # "Executive Coach"
+    r"|people\s+development\s+(?:coach|manager)"       # "People Development Coach/Manager"
+    r"|mental\s+health\s+(?:lead|manager|advisor|director)"  # "Mental Health Lead/Manager"
+    r"|innovation\s+manager"                # "Innovation Manager"
+    r"|(?:tender|bid)\s+writer"             # "Tender Writer", "Bid Writer"
+    r"|social\s+value\s+(?:sme|manager|lead|specialist)"  # "Social Value SME/Manager/Lead"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# Broad-role bypass (v0.4 2026-06-18)
+# ---------------------------------------------------------------------------
+
+# Titles in this regex bypass the mechanical-engineering keyword check entirely.
+# The 16 new role families span commercial, sustainability, coaching, and
+# strategic operations — they do not carry mechanical vocabulary in their
+# descriptions but are desired search targets requested by Steve 2026-06-18.
+#
+# used by passes_mechanical(): BROAD_ROLE_RE match → return True immediately.
+# All titles here are ALSO in PM_TITLE_RE so passes_pm_role() is satisfied too.
+BROAD_ROLE_RE = re.compile(
+    r"\b(?:"
+    r"programme\s+director"
+    r"|quantity\s+surveyor"
+    r"|(?:project\s+)?cost\s+accountant"
+    r"|risk\s+manager"
+    r"|project\s+planner"               # already in PM_TITLE_RE; listed here for bypass
+    r"|commercial\s+manager"
+    r"|coo|chief\s+operating\s+officer"
+    r"|operations\s+director"
+    r"|business\s+improvement\s+(?:manager|director)"
+    r"|sustainability\s+(?:lead|manager|director)"
+    r"|executive\s+coach"
+    r"|people\s+development\s+(?:coach|manager)"
+    r"|mental\s+health\s+(?:lead|manager|advisor|director)"
+    r"|innovation\s+manager"
+    r"|(?:tender|bid)\s+writer"
+    r"|social\s+value\s+(?:sme|manager|lead|specialist)"
     r")\b",
     re.IGNORECASE,
 )
@@ -441,7 +491,16 @@ def passes_mechanical(listing: NormalizedListing) -> bool:
     site-supervisor disqualifier phrases (smsts, hands on role, first aider), the
     listing must also carry a *specific* mechanical keyword in the title — the word
     'construction' alone is excluded because it is circular evidence for this sector.
+
+    Broad-role bypass (v0.4 2026-06-18):
+    If the title matches BROAD_ROLE_RE the listing passes unconditionally —
+    these role families (QS, sustainability, coaching, etc.) have no mechanical
+    vocabulary but are explicitly desired search targets.
     """
+    # Broad-role bypass: new role families pass without mechanical keywords.
+    if BROAD_ROLE_RE.search(listing.title or ""):
+        return True
+
     if listing.sector in _MECHANICAL_SECTORS:
         title_lower = (listing.title or "").lower()
         has_disqualifier = any(phrase in title_lower for phrase in DISQUALIFY_PHRASES)

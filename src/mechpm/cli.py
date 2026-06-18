@@ -190,7 +190,7 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                 )
             )
         else:
-            adapters.append(cls(crawl_delay=cfg.crawl_delay))  # type: ignore[call-arg]
+            adapters.append(cls(crawl_delay=cfg.crawl_delay, keywords_list=cfg.keywords_list))  # type: ignore[call-arg]
 
     return adapters
 

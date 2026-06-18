@@ -332,3 +332,103 @@ next_report = today + timedelta(days=days_until_friday)
 **Test delta:** 428 → 441 passed (+13 new), 25 skipped unchanged, 0 failures.
 
 **Commit:** `feat(reporter): add region filter bar + fix next-report date` (f640e65)
+
+---
+
+## 2026-06-17: Job Type Filter Bar (Sprint item — Steve request)
+
+### Request
+Steve asked for a third filter dimension in the HTML report: **Job Type**, alongside the existing Source and Region filter bars.
+
+### Role families surfaced
+| Slug | Display name | Match rule |
+|------|-------------|------------|
+| `project-manager` | Project Manager | "project manager", "programme manager", "construction manager", "commissioning" |
+| `project-engineer` | Project Engineer | "project engineer" |
+| `assurance` | Assurance | "assurance", "sqa" |
+| `document-controller` | Document Controller | "document control", "records control" |
+| `site-manager` | Site Manager | "site manager" |
+| `planner` | Planner | "planner", "planning engineer" |
+| `other` | Other | fallback |
+
+First-match wins; document-controller and assurance checked before project-manager to prevent false-positives.
+
+### Changes
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/html_render.py` | `classify_job_type()` public function; `_jobtype_id()` helper; `_JOBTYPE_RULES/_SLUG/_ORDER/_DISPLAY` constants; CSS job-type pill colours (7 colours distinct from source/region palettes); `_render_jobtype_filter_bar()` renderer; `data-jobtype` attribute on every `<article>` card; `_FILTER_JS` extended with `activeJobType` Set and `data-jt` / `jobtype-filter-bar` wiring |
+| `tests/test_html_report.py` | Tests 18–21: data-jobtype on every card, filter bar buttons present with counts, 16-case classify_job_type unit test, JS attributes present |
+
+### Colour scheme for job type pills
+- Project Manager: indigo `#3730a3 / #e0e7ff`
+- Project Engineer: steel blue `#1e40af / #dbeafe`
+- Assurance: dark green `#14532d / #dcfce7`
+- Document Controller: amber-brown `#92400e / #fef3c7`
+- Site Manager: dark orange `#c2410c / #fff7ed`
+- Planner: purple `#6b21a8 / #f3e8ff`
+- Other: grey `#374151 / #f1f5f9`
+
+### Test delta
+479 → 483 passed (+4 new), 25 skipped unchanged, 0 failures.
+
+### Re-render
+Pipeline: 584 fetched → 51 stored → `reports/2026-06-17.html` generated. All 7 job-type pills visible in browser.
+
+**Commit:** `feat(reporter): add Job Type filter bar (3rd dimension)` (c21f69c)
+
+---
+
+## 2026-06-18: Filter UI Refactor — Pills → Dropdown Selects (Steve request)
+
+### Request
+Steve asked to replace all three pill-button filter bars with `<select>` dropdown elements for a cleaner, lower-footprint filter UI.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `src/mechpm/reporter/html_render.py` | Removed `_render_filter_bar()`, `_render_region_filter_bar()`, `_render_jobtype_filter_bar()`. Added `_render_combined_filter_bar()` — a single combined filter row with three `<select>` dropdowns (source, region, job type). Replaced pill-button CSS (~50 lines) with dropdown CSS (`.filter-group`, `.filter-select`). Rewrote `_FILTER_JS` to read `selSrc.value`, `selRgn.value`, `selJt.value` from select elements instead of maintaining three `Set` states. Updated `render_weekly_html()` body_parts to call `_render_combined_filter_bar()` once instead of three separate calls. |
+| `tests/test_html_report.py` | Updated tests 12, 15, 16, 19, 21 to assert on `<select id="filter-source/region/jobtype">` and `<option value="...">` patterns instead of `data-src`, `data-rgn`, `data-jt` pill attributes. Count badge assertions (e.g. `"Adzuna (2)"`) unchanged — still present in option text. |
+
+### New HTML structure
+```html
+<div id="filter-bar" class="filter-bar">
+  <div class="filter-group">
+    <label for="filter-source">Source:</label>
+    <select id="filter-source" class="filter-select">
+      <option value="">All Sources</option>
+      <option value="reed">Reed (28)</option>
+      ...
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filter-region">Region:</label>
+    <select id="filter-region" class="filter-select">...</select>
+  </div>
+  <div class="filter-group">
+    <label for="filter-jobtype">Job Type:</label>
+    <select id="filter-jobtype" class="filter-select">...</select>
+  </div>
+  <span id="filter-count">Showing all 51 listings</span>
+</div>
+```
+
+### New JS pattern
+```js
+var src = selSrc ? selSrc.value : '';
+var show = (!src || c.dataset.source === src) && ...
+```
+Empty string = "All" (the default option). Single-select; no Set state needed.
+
+### Dynamic option discovery
+`_render_combined_filter_bar()` discovers all three dimensions from the actual listings passed in at render time. Job-type options loop `_JOBTYPE_ORDER` first (stable ordering), then append any unrecognised slugs discovered dynamically — so Ada's new job-type categories automatically appear without a Polly code change.
+
+### Unchanged
+- `data-source`, `data-region`, `data-jobtype` attributes on `<article>` cards — unchanged
+- `applyFilter` function name — unchanged (test 13 passes as-is)
+- `id="filter-bar"` — unchanged (test 13 passes as-is)
+- Progressive enhancement: bar hidden via `style="display:none"` until JS runs
+
+### Test delta
+25/25 passed in `tests/test_html_report.py`, 0 failures.
+

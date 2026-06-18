@@ -393,11 +393,11 @@ footer {
 }
 footer strong { color: var(--text); }
 
-/* ---- Source filter bar ---- */
+/* ---- Combined filter bar (dropdown selects) ---- */
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 12px 20px;
     align-items: center;
     margin-bottom: 24px;
     padding: 14px 18px;
@@ -405,54 +405,40 @@ footer strong { color: var(--text); }
     border: 1px solid var(--border);
     border-radius: 8px;
 }
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 .filter-bar-label {
     font-size: 13px;
     font-weight: 600;
     color: var(--muted);
-    margin-right: 4px;
+    white-space: nowrap;
 }
-.filter-btn {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 5px 14px;
-    border-radius: 9999px;
-    border: 2px solid var(--border);
+.filter-select {
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 28px 5px 10px;
     cursor: pointer;
-    background: var(--tag-bg);
-    color: var(--muted);
-    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
-    line-height: 1.4;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    min-width: 160px;
+    transition: border-color 0.15s;
 }
-.filter-btn.inactive { opacity: 0.38; }
-.filter-btn[data-src="reed"].active            { background:#dbeafe; color:#1d4ed8; border-color:#1d4ed8; }
-.filter-btn[data-src="adzuna"].active          { background:#dcfce7; color:#15803d; border-color:#15803d; }
-.filter-btn[data-src="energy-jobline"].active  { background:#ffedd5; color:#c2410c; border-color:#c2410c; }
-.filter-btn[data-src="railwaypeople"].active   { background:#ccfbf1; color:#0f766e; border-color:#0f766e; }
-.filter-btn[data-src="aviation-job-search"].active { background:#f3e8ff; color:#7e22ce; border-color:#7e22ce; }
-.filter-btn-all.active { background:#f1f5f9; color:var(--text); border-color:#374151; opacity:1; }
+.filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.15);
+}
 .filter-count-label { font-size: 12px; color: var(--muted); margin-left: auto; font-style: italic; }
-
-/* ---- Region filter bar ---- */
-#region-filter-bar { margin-top: -12px; }
-.filter-btn[data-rgn="london"].active     { background:#dbeafe; color:#1d4ed8; border-color:#1d4ed8; }
-.filter-btn[data-rgn="south-east"].active { background:#ccfbf1; color:#0f766e; border-color:#0f766e; }
-.filter-btn[data-rgn="midlands"].active   { background:#dcfce7; color:#15803d; border-color:#15803d; }
-.filter-btn[data-rgn="north"].active      { background:#ffedd5; color:#c2410c; border-color:#c2410c; }
-.filter-btn[data-rgn="scotland"].active   { background:#f3e8ff; color:#6b21a8; border-color:#6b21a8; }
-.filter-btn[data-rgn="wales"].active      { background:#fee2e2; color:#b91c1c; border-color:#b91c1c; }
-.filter-btn[data-rgn="remote"].active     { background:#e0e7ff; color:#4338ca; border-color:#4338ca; }
-.filter-btn[data-rgn="other"].active      { background:#f1f5f9; color:#374151; border-color:#374151; }
-.filter-btn[data-rgn="region-tbc"].active { background:#f1f5f9; color:#374151; border-color:#374151; }
-
-/* ---- Job type filter bar ---- */
-#jobtype-filter-bar { margin-top: -12px; }
-.filter-btn[data-jt="project-manager"].active    { background:#e0e7ff; color:#3730a3; border-color:#3730a3; }
-.filter-btn[data-jt="project-engineer"].active   { background:#dbeafe; color:#1e40af; border-color:#1e40af; }
-.filter-btn[data-jt="assurance"].active          { background:#dcfce7; color:#14532d; border-color:#14532d; }
-.filter-btn[data-jt="document-controller"].active{ background:#fef3c7; color:#92400e; border-color:#92400e; }
-.filter-btn[data-jt="site-manager"].active       { background:#fff7ed; color:#c2410c; border-color:#c2410c; }
-.filter-btn[data-jt="planner"].active            { background:#f3e8ff; color:#6b21a8; border-color:#6b21a8; }
-.filter-btn[data-jt="other"].active              { background:#f1f5f9; color:#374151; border-color:#374151; }
 """
 
 # ---------------------------------------------------------------------------
@@ -575,116 +561,84 @@ def _jobtype_id(listing: NormalizedListing) -> str:
 # Filter bar
 # ---------------------------------------------------------------------------
 
-def _render_filter_bar(listings: list[NormalizedListing]) -> str:
-    """Render the source filter pill bar.
+def _render_combined_filter_bar(listings: list[NormalizedListing]) -> str:
+    """Render a single filter row containing three <select> dropdowns.
 
-    The bar is hidden by default (style="display:none") and shown by the
-    embedded JavaScript on DOMContentLoaded.  With JS disabled all cards
-    remain visible and the bar stays hidden — progressive enhancement.
+    Dropdowns cover source, region, and job type.  Options are populated
+    dynamically from the actual listings in this report, so any new categories
+    added to the pipeline (e.g. new job types from Ada) appear automatically.
+
+    The bar is hidden until JS runs (progressive enhancement): with JS
+    disabled all cards remain visible and the bar stays hidden.
     """
     from collections import Counter
 
-    counts: Counter[str] = Counter(_source_id(l) for l in listings)
-    if not counts:
+    if not listings:
         return ""
 
-    total = sum(counts.values())
-    sources_sorted = sorted(counts.items(), key=lambda x: -x[1])
+    total = len(listings)
 
-    all_btn = (
-        '<button class="filter-btn filter-btn-all active" id="filter-btn-all" aria-pressed="true">'
-        "All"
-        "</button>"
-    )
-    source_btns = "".join(
-        f'<button class="filter-btn active" data-src="{_h(sid)}" aria-pressed="true">'
-        f"{_h(_source_display_name(sid))} ({cnt})"
-        f"</button>"
-        for sid, cnt in sources_sorted
-    )
-    counter = (
-        f'<span id="filter-count" class="filter-count-label">'
-        f"Showing all {total} listings</span>"
+    # Source options — sorted by frequency descending
+    src_counts: Counter[str] = Counter(_source_id(l) for l in listings)
+    src_sorted = sorted(src_counts.items(), key=lambda x: -x[1])
+    src_options = "".join(
+        f'      <option value="{_h(sid)}">{_h(_source_display_name(sid))} ({cnt})</option>\n'
+        for sid, cnt in src_sorted
     )
 
-    return (
-        f'<div id="filter-bar" style="display:none">\n'
-        f'  <span class="filter-bar-label">Filter by source:</span>\n'
-        f"  {all_btn}\n"
-        f"  {source_btns}\n"
-        f"  {counter}\n"
-        f"</div>"
-    )
-
-
-def _render_region_filter_bar(listings: list[NormalizedListing]) -> str:
-    """Render the region filter pill bar.
-
-    Same progressive-enhancement pattern as source filter bar — hidden until
-    JS runs.  Buttons appear in canonical REGION_ORDER.
-    """
-    from collections import Counter
-
-    counts: Counter[str] = Counter(_region_id(l) for l in listings)
-    if not counts:
-        return ""
-
+    # Region options — canonical REGION_ORDER, then any unlisted extras
+    rgn_counts: Counter[str] = Counter(_region_id(l) for l in listings)
     region_order_ids = [r.lower().replace(" ", "-") for r in REGION_ORDER]
-    regions_sorted = [(rid, counts[rid]) for rid in region_order_ids if rid in counts]
-
-    all_btn = (
-        '<button class="filter-btn filter-btn-all active" id="filter-btn-all-rgn" aria-pressed="true">'
-        "All"
-        "</button>"
-    )
-    region_btns = "".join(
-        f'<button class="filter-btn active" data-rgn="{_h(rid)}" aria-pressed="true">'
-        f"{_h(_REGION_ID_TO_DISPLAY.get(rid, rid))} ({cnt})"
-        f"</button>"
-        for rid, cnt in regions_sorted
+    rgn_sorted = [(rid, rgn_counts[rid]) for rid in region_order_ids if rid in rgn_counts]
+    for rid, cnt in sorted(rgn_counts.items()):
+        if rid not in {r for r, _ in rgn_sorted}:
+            rgn_sorted.append((rid, cnt))
+    rgn_options = "".join(
+        f'      <option value="{_h(rid)}">{_h(_REGION_ID_TO_DISPLAY.get(rid, rid.replace("-", " ").title()))} ({cnt})</option>\n'
+        for rid, cnt in rgn_sorted
     )
 
-    return (
-        f'<div id="region-filter-bar" class="filter-bar" style="display:none">\n'
-        f'  <span class="filter-bar-label">Filter by region:</span>\n'
-        f"  {all_btn}\n"
-        f"  {region_btns}\n"
-        f"</div>"
+    # Job-type options — _JOBTYPE_ORDER first, then any dynamically discovered extras
+    jt_counts: Counter[str] = Counter(_jobtype_id(l) for l in listings)
+    known_ids = list(_JOBTYPE_ORDER)
+    jt_sorted = [(jid, jt_counts[jid]) for jid in known_ids if jid in jt_counts]
+    for jid, cnt in sorted(jt_counts.items()):
+        if jid not in {j for j, _ in jt_sorted}:
+            jt_sorted.append((jid, cnt))
+    jt_options = "".join(
+        f'      <option value="{_h(jid)}">{_h(_JOBTYPE_DISPLAY.get(jid, jid.replace("-", " ").title()))} ({cnt})</option>\n'
+        for jid, cnt in jt_sorted
     )
 
-
-def _render_jobtype_filter_bar(listings: list[NormalizedListing]) -> str:
-    """Render the job-type filter pill bar.
-
-    Progressive-enhancement pattern: hidden until JS runs.  Pills appear in
-    _JOBTYPE_ORDER so the display is stable across runs.
-    """
-    from collections import Counter
-
-    counts: Counter[str] = Counter(_jobtype_id(l) for l in listings)
-    if not counts:
-        return ""
-
-    jobtypes_sorted = [(jid, counts[jid]) for jid in _JOBTYPE_ORDER if jid in counts]
-
-    all_btn = (
-        '<button class="filter-btn filter-btn-all active" id="filter-btn-all-jt" aria-pressed="true">'
-        "All"
-        "</button>"
-    )
-    jt_btns = "".join(
-        f'<button class="filter-btn active" data-jt="{_h(jid)}" aria-pressed="true">'
-        f"{_h(_JOBTYPE_DISPLAY.get(jid, jid))} ({cnt})"
-        f"</button>"
-        for jid, cnt in jobtypes_sorted
+    counter = (
+        f'<span id="filter-count" class="filter-count-label">Showing all {total} listings</span>'
     )
 
     return (
-        f'<div id="jobtype-filter-bar" class="filter-bar" style="display:none">\n'
-        f'  <span class="filter-bar-label">Filter by job type:</span>\n'
-        f"  {all_btn}\n"
-        f"  {jt_btns}\n"
-        f"</div>"
+        f'<div id="filter-bar" class="filter-bar" style="display:none">\n'
+        f'  <div class="filter-group">\n'
+        f'    <label class="filter-bar-label" for="filter-source">Source:</label>\n'
+        f'    <select id="filter-source" class="filter-select">\n'
+        f'      <option value="">All Sources</option>\n'
+        f"{src_options}"
+        f'    </select>\n'
+        f'  </div>\n'
+        f'  <div class="filter-group">\n'
+        f'    <label class="filter-bar-label" for="filter-region">Region:</label>\n'
+        f'    <select id="filter-region" class="filter-select">\n'
+        f'      <option value="">All Regions</option>\n'
+        f"{rgn_options}"
+        f'    </select>\n'
+        f'  </div>\n'
+        f'  <div class="filter-group">\n'
+        f'    <label class="filter-bar-label" for="filter-jobtype">Job Type:</label>\n'
+        f'    <select id="filter-jobtype" class="filter-select">\n'
+        f'      <option value="">All Job Types</option>\n'
+        f"{jt_options}"
+        f'    </select>\n'
+        f'  </div>\n'
+        f'  {counter}\n'
+        f'</div>'
     )
 
 
@@ -694,86 +648,31 @@ def _render_jobtype_filter_bar(listings: list[NormalizedListing]) -> str:
 
 _FILTER_JS = """<script>
 (function(){
-  var srcBar=document.getElementById('filter-bar');
-  var rgnBar=document.getElementById('region-filter-bar');
-  var jtBar=document.getElementById('jobtype-filter-bar');
-  if(srcBar)srcBar.style.display='flex';
-  if(rgnBar)rgnBar.style.display='flex';
-  if(jtBar)jtBar.style.display='flex';
+  var bar=document.getElementById('filter-bar');
+  if(bar)bar.style.display='flex';
+  var selSrc=document.getElementById('filter-source');
+  var selRgn=document.getElementById('filter-region');
+  var selJt=document.getElementById('filter-jobtype');
   var allCards=document.querySelectorAll('article.role-card[data-source]');
-  var allSrc=new Set(),allRgn=new Set(),allJt=new Set();
-  allCards.forEach(function(c){
-    allSrc.add(c.dataset.source);
-    if(c.dataset.region)allRgn.add(c.dataset.region);
-    if(c.dataset.jobtype)allJt.add(c.dataset.jobtype);
-  });
-  var activeSrc=new Set(allSrc),activeRgn=new Set(allRgn),activeJobType=new Set(allJt);
+  var total=allCards.length;
   function applyFilter(){
-    var vis=0,tot=allCards.length;
+    var src=selSrc?selSrc.value:'';
+    var rgn=selRgn?selRgn.value:'';
+    var jt=selJt?selJt.value:'';
+    var vis=0;
     allCards.forEach(function(c){
-      var show=activeSrc.has(c.dataset.source)
-        &&(!c.dataset.region||activeRgn.has(c.dataset.region))
-        &&(!c.dataset.jobtype||activeJobType.has(c.dataset.jobtype));
+      var show=(!src||c.dataset.source===src)
+        &&(!rgn||c.dataset.region===rgn)
+        &&(!jt||c.dataset.jobtype===jt);
       c.style.display=show?'':'none';
       if(show)vis++;
     });
     var lbl=document.getElementById('filter-count');
-    if(lbl)lbl.textContent=vis===tot?'Showing all '+tot+' listings':'Showing '+vis+' of '+tot+' listings';
-    document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
-      var on=activeSrc.has(b.dataset.src);
-      b.classList.toggle('active',on);
-      b.classList.toggle('inactive',!on);
-      b.setAttribute('aria-pressed',on?'true':'false');
-    });
-    var ab=document.getElementById('filter-btn-all');
-    if(ab){var isAll=activeSrc.size===allSrc.size;ab.classList.toggle('active',isAll);ab.classList.toggle('inactive',!isAll);}
-    document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
-      var on=activeRgn.has(b.dataset.rgn);
-      b.classList.toggle('active',on);
-      b.classList.toggle('inactive',!on);
-      b.setAttribute('aria-pressed',on?'true':'false');
-    });
-    var rb=document.getElementById('filter-btn-all-rgn');
-    if(rb){var isAllR=activeRgn.size===allRgn.size;rb.classList.toggle('active',isAllR);rb.classList.toggle('inactive',!isAllR);}
-    document.querySelectorAll('.filter-btn[data-jt]').forEach(function(b){
-      var on=activeJobType.has(b.dataset.jt);
-      b.classList.toggle('active',on);
-      b.classList.toggle('inactive',!on);
-      b.setAttribute('aria-pressed',on?'true':'false');
-    });
-    var jb=document.getElementById('filter-btn-all-jt');
-    if(jb){var isAllJ=activeJobType.size===allJt.size;jb.classList.toggle('active',isAllJ);jb.classList.toggle('inactive',!isAllJ);}
+    if(lbl)lbl.textContent=vis===total?'Showing all '+total+' listings':'Showing '+vis+' of '+total+' listings';
   }
-  document.querySelectorAll('.filter-btn[data-src]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var s=b.dataset.src;
-      if(activeSrc.has(s)){if(activeSrc.size>1)activeSrc.delete(s);}
-      else{activeSrc.add(s);}
-      applyFilter();
-    });
-  });
-  var ab=document.getElementById('filter-btn-all');
-  if(ab)ab.addEventListener('click',function(){activeSrc=new Set(allSrc);applyFilter();});
-  document.querySelectorAll('.filter-btn[data-rgn]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var r=b.dataset.rgn;
-      if(activeRgn.has(r)){if(activeRgn.size>1)activeRgn.delete(r);}
-      else{activeRgn.add(r);}
-      applyFilter();
-    });
-  });
-  var rb=document.getElementById('filter-btn-all-rgn');
-  if(rb)rb.addEventListener('click',function(){activeRgn=new Set(allRgn);applyFilter();});
-  document.querySelectorAll('.filter-btn[data-jt]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var j=b.dataset.jt;
-      if(activeJobType.has(j)){if(activeJobType.size>1)activeJobType.delete(j);}
-      else{activeJobType.add(j);}
-      applyFilter();
-    });
-  });
-  var jb=document.getElementById('filter-btn-all-jt');
-  if(jb)jb.addEventListener('click',function(){activeJobType=new Set(allJt);applyFilter();});
+  if(selSrc)selSrc.addEventListener('change',applyFilter);
+  if(selRgn)selRgn.addEventListener('change',applyFilter);
+  if(selJt)selJt.addEventListener('change',applyFilter);
   applyFilter();
 })();
 </script>"""
@@ -1174,9 +1073,7 @@ def render_weekly_html(
     # Build document body.
     body_parts: list[str] = [
         _render_html_header(run_metadata, clean, flagged),
-        _render_filter_bar(listings),
-        _render_region_filter_bar(listings),
-        _render_jobtype_filter_bar(listings),
+        _render_combined_filter_bar(listings),
         _render_html_new_section(new_listings, today),
         _render_html_premium_section(premium_listings, today),
         _render_html_urgent_section(urgent_listings, today),

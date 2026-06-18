@@ -205,8 +205,8 @@ def test_gold_set_fixture_counts():
             and not f.name.endswith(".dedup_expected.json")
         )
 
-    assert counts["positive"] == 26, f"Expected 26 positives, got {counts['positive']}"
-    assert counts["negative"] == 22, f"Expected 22 negatives, got {counts['negative']}"
+    assert counts["positive"] == 27, f"Expected 27 positives, got {counts['positive']}"
+    assert counts["negative"] == 21, f"Expected 21 negatives, got {counts['negative']}"
     assert counts["edge_cases"] == 7, f"Expected 7 edge cases, got {counts['edge_cases']}"
     assert counts["duplicate_pairs"] == 6, (
         f"Expected 6 dup-pair files (3 pairs × 2), got {counts['duplicate_pairs']}"
@@ -590,3 +590,158 @@ def test_passes_mechanical_site_manager_chemical_plant_desc_kept():
     )
     assert passes_mechanical(listing) is True
 
+
+# ---------------------------------------------------------------------------
+# v0.4 broad role expansion tests (2026-06-18)
+# ---------------------------------------------------------------------------
+
+@_SKIP
+@pytest.mark.parametrize("title", [
+    "Project Programme Director",
+    "Programme Director",
+    "Senior Programme Director",
+    "Quantity Surveyor",
+    "Senior Quantity Surveyor",
+    "Project Cost Accountant",
+    "Cost Accountant",
+    "Risk Manager",
+    "Senior Risk Manager",
+    "Project Planner",
+    "Senior Project Planner",
+    "Commercial Manager",
+    "Interim COO",
+    "COO",
+    "Chief Operating Officer",
+    "Operations Director",
+    "Business Improvement Manager",
+    "Business Improvement Director",
+    "Sustainability Lead",
+    "Sustainability Manager",
+    "Sustainability Director",
+    "Executive Coach",
+    "People Development Coach",
+    "People Development Manager",
+    "Mental Health Lead",
+    "Mental Health Manager",
+    "Innovation Manager",
+    "Tender Writer",
+    "Bid Writer",
+    "Social Value SME",
+    "Social Value Manager",
+    "Social Value Lead",
+])
+def test_broad_role_passes_pm_filter(title):
+    """All 16 new broad role titles must pass passes_pm_role()."""
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_pm_role
+
+    listing = NormalizedListing(
+        source="reed",
+        title=title,
+        location="London, UK",
+        country="GB",
+        contract_type="contract",
+    )
+    assert passes_pm_role(listing) is True, (
+        f"Expected passes_pm_role() is True for title={title!r}"
+    )
+
+
+@_SKIP
+@pytest.mark.parametrize("title", [
+    "Programme Director",
+    "Quantity Surveyor",
+    "Project Cost Accountant",
+    "Risk Manager",
+    "Project Planner",
+    "Commercial Manager",
+    "Interim COO",
+    "COO",
+    "Operations Director",
+    "Business Improvement Manager",
+    "Business Improvement Director",
+    "Sustainability Lead",
+    "Executive Coach",
+    "People Development Coach",
+    "Mental Health Lead",
+    "Mental Health Manager",
+    "Innovation Manager",
+    "Tender Writer",
+    "Bid Writer",
+    "Social Value SME",
+    "Social Value Lead",
+])
+def test_broad_role_bypasses_mechanical_filter_generalist(title):
+    """All broad role titles pass passes_mechanical() with no mech keywords in description.
+
+    A generalist-sector listing with no mechanical keywords would normally fail
+    passes_mechanical().  BROAD_ROLE_RE must bypass this check.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical
+
+    listing = NormalizedListing(
+        source="reed",
+        title=title,
+        location="London, UK",
+        country="GB",
+        contract_type="contract",
+        sector="generalist",
+        description_raw="Contract opportunity. Competitive day rate.",
+    )
+    assert passes_mechanical(listing) is True, (
+        f"Expected passes_mechanical() is True for title={title!r} "
+        f"(no mechanical keywords in description)"
+    )
+
+
+@_SKIP
+def test_project_planner_already_in_pm_title_re():
+    """Project Planner (title #5) is already in PM_TITLE_RE — verify no regression."""
+    from mechpm.extractor.filters import PM_TITLE_RE
+
+    assert PM_TITLE_RE.search("Project Planner"), "PM_TITLE_RE should match 'Project Planner'"
+    assert PM_TITLE_RE.search("Senior Project Planner"), (
+        "PM_TITLE_RE should match 'Senior Project Planner'"
+    )
+
+
+@_SKIP
+def test_broad_role_re_does_not_match_unrelated_titles():
+    """BROAD_ROLE_RE must not fire on unrelated IT/software roles."""
+    from mechpm.extractor.filters import BROAD_ROLE_RE
+
+    false_positives = [
+        "Software Developer",
+        "Data Analyst",
+        "HR Manager",
+        "Scrum Master",
+        "Product Owner",
+    ]
+    for title in false_positives:
+        assert not BROAD_ROLE_RE.search(title), (
+            f"BROAD_ROLE_RE unexpectedly matched {title!r}"
+        )
+
+
+@_SKIP
+def test_quantity_surveyor_disqualifier_bypassed_by_broad_role():
+    """'Quantity Surveyor' is in DISQUALIFY_PHRASES but BROAD_ROLE_RE fires first.
+
+    In passes_mechanical(), BROAD_ROLE_RE precedes the DISQUALIFY_PHRASES scan.
+    A QS listing must pass even on a generalist board.
+    """
+    from mechpm.models import NormalizedListing
+    from mechpm.extractor.filters import passes_mechanical, passes_pm_role
+
+    listing = NormalizedListing(
+        source="reed",
+        title="Senior Quantity Surveyor",
+        location="Birmingham, UK",
+        country="GB",
+        contract_type="contract",
+        sector="generalist",
+        description_raw="Interim QS role on a major infrastructure programme.",
+    )
+    assert passes_pm_role(listing) is True
+    assert passes_mechanical(listing) is True

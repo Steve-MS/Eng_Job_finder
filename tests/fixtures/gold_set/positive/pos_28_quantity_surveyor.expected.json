@@ -1,0 +1,19 @@
+{
+  "extracted": {
+    "country": "GB",
+    "contract_type": "contract",
+    "ir35_status": "inside",
+    "sector": "construction"
+  },
+  "filters": {
+    "contract_filter": true,
+    "uk_filter": true,
+    "pm_filter": true,
+    "mech_filter": true,
+    "overall_pass": true
+  },
+  "meta": {
+    "category": "positive",
+    "notes": "v0.4 2026-06-18: 'quantity surveyor' added to PM_TITLE_RE and BROAD_ROLE_RE. Was neg_16 (pm_filter=false) until this expansion. Now a desired search target — passes pm_filter via PM_TITLE_RE and mech_filter via BROAD_ROLE_RE bypass."
+  }
+}

@@ -18,6 +18,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 from selectolax.parser import HTMLParser
@@ -33,6 +34,14 @@ _SEARCH_URL = (
 _MAX_PAGES = 5
 _PAGE_DELAY_SECONDS = 10  # robots.txt mandates Crawl-delay: 10
 _REQUEST_TIMEOUT = 30.0
+
+
+def _build_rp_search_url(keyword: str) -> str:
+    """Build a RailwayPeople search URL for a single keyword."""
+    return (
+        "https://www.railwaypeople.com/jobs"
+        f"?keywords={quote_plus(keyword)}&jobtype=contract"
+    )
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -355,72 +364,97 @@ class RailwayPeopleAdapter(SourceAdapter):
     JSON blob, recursively locates the jobs list inside ``props.pageProps``,
     and maps each job dict to a ``RawListing``.
 
-    Paginates up to ``_MAX_PAGES`` pages; sleeps ``_PAGE_DELAY_SECONDS``
+    Supports a ``keywords_list`` of search terms (config-driven since v0.4).
+    Each keyword generates an independent paginated query; results are
+    deduplicated by ``source_listing_id`` before returning.
+
+    Paginates up to ``_MAX_PAGES`` pages per keyword; sleeps ``_PAGE_DELAY_SECONDS``
     between requests (robots.txt ``Crawl-delay: 10``).
     """
 
     name = "railwaypeople"
 
-    def __init__(self, crawl_delay: int = 10, **kwargs: object) -> None:
+    def __init__(
+        self,
+        crawl_delay: int = 10,
+        keywords_list: list[str] | None = None,
+        **kwargs: object,
+    ) -> None:
         self.crawl_delay = crawl_delay
+        self._keywords_list: list[str] = keywords_list or ["project manager"]
 
     async def fetch(self, since: datetime | None = None) -> list[RawListing]:
         """Fetch contract PM listings from RailwayPeople.com.
 
+        Iterates over ``_keywords_list``, running a paginated query per keyword.
+        Results are deduplicated by ``source_listing_id``.
         Returns [] on any unrecoverable error — never raises.
         Applies *since* filter client-side on ``posted_at``.
         """
-        listings: list[RawListing] = []
-        try:
-            async with httpx.AsyncClient(
-                headers=_HEADERS,
-                timeout=_REQUEST_TIMEOUT,
-                follow_redirects=True,
-            ) as client:
-                for page_num in range(1, _MAX_PAGES + 1):
-                    url = (
-                        _SEARCH_URL
-                        if page_num == 1
-                        else f"{_SEARCH_URL}&page={page_num}"
-                    )
-                    page_listings, found_count = await self._fetch_page(
-                        client, url, page_num
-                    )
+        seen_ids: set[str] = set()
+        all_listings: list[RawListing] = []
 
-                    if found_count == 0 and page_num == 1:
-                        # Nothing found on the first page — abort early.
-                        break
-
-                    if found_count == 0:
-                        logger.info(
-                            "RailwayPeople: page %d returned 0 listings"
-                            " — stopping pagination.",
-                            page_num,
+        for kw_idx, keyword in enumerate(self._keywords_list):
+            base_url = _build_rp_search_url(keyword)
+            kw_listings: list[RawListing] = []
+            try:
+                async with httpx.AsyncClient(
+                    headers=_HEADERS,
+                    timeout=_REQUEST_TIMEOUT,
+                    follow_redirects=True,
+                ) as client:
+                    for page_num in range(1, _MAX_PAGES + 1):
+                        url = (
+                            base_url
+                            if page_num == 1
+                            else f"{base_url}&page={page_num}"
                         )
-                        break
+                        page_listings, found_count = await self._fetch_page(
+                            client, url, page_num
+                        )
 
-                    for raw in page_listings:
-                        if since and raw.posted_at and raw.posted_at < since:
-                            continue
-                        listings.append(raw)
+                        if found_count == 0 and page_num == 1:
+                            break
 
-                    if page_num < _MAX_PAGES and found_count > 0:
-                        await asyncio.sleep(_PAGE_DELAY_SECONDS)
+                        if found_count == 0:
+                            logger.info(
+                                "RailwayPeople[%s]: page %d returned 0 listings"
+                                " — stopping pagination.",
+                                keyword,
+                                page_num,
+                            )
+                            break
 
-        except Exception:
-            logger.exception(
-                "RailwayPeople fetch failed — returning partial results"
-                " (%d so far).",
-                len(listings),
-            )
-            return listings
+                        for raw in page_listings:
+                            if since and raw.posted_at and raw.posted_at < since:
+                                continue
+                            if raw.source_listing_id not in seen_ids:
+                                seen_ids.add(raw.source_listing_id)
+                                kw_listings.append(raw)
+
+                        if page_num < _MAX_PAGES and found_count > 0:
+                            await asyncio.sleep(_PAGE_DELAY_SECONDS)
+
+            except Exception:
+                logger.exception(
+                    "RailwayPeople[%s] fetch failed — %d partial result(s).",
+                    keyword,
+                    len(kw_listings),
+                )
+
+            all_listings.extend(kw_listings)
+
+            # Sleep between keyword queries (not after the last one).
+            if kw_idx < len(self._keywords_list) - 1:
+                await asyncio.sleep(_PAGE_DELAY_SECONDS)
 
         logger.info(
-            "RailwayPeople: fetched %d listing(s) (since=%s).",
-            len(listings),
+            "RailwayPeople: fetched %d unique listing(s) across %d keyword(s) (since=%s).",
+            len(all_listings),
+            len(self._keywords_list),
             since,
         )
-        return listings
+        return all_listings
 
     async def _fetch_page(
         self,

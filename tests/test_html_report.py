@@ -389,12 +389,13 @@ def test_filter_bar_lists_all_unique_sources(tmp_path: Path) -> None:
     out = render_weekly_html(listings, meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
 
-    # All three unique sources must appear as filter buttons in the filter bar
-    assert 'data-src="reed"' in content, "Reed filter button missing"
-    assert 'data-src="adzuna"' in content, "Adzuna filter button missing"
-    assert 'data-src="energy-jobline"' in content, "Energy Jobline filter button missing"
-    # Adzuna count badge should show 2
-    assert "Adzuna (2)" in content, "Adzuna count badge should show 2"
+    # Source filter dropdown must be present and list all unique sources
+    assert 'id="filter-source"' in content, "Source filter dropdown missing"
+    assert 'value="reed"' in content, "Reed source option missing"
+    assert 'value="adzuna"' in content, "Adzuna source option missing"
+    assert 'value="energy-jobline"' in content, "Energy Jobline source option missing"
+    # Adzuna count should show 2 in option text
+    assert "Adzuna (2)" in content, "Adzuna count should show 2"
 
 
 # ---------------------------------------------------------------------------
@@ -473,11 +474,11 @@ def test_region_filter_bar_lists_expected_regions(tmp_path: Path) -> None:
     out = render_weekly_html(listings, meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
 
-    assert 'id="region-filter-bar"' in content, "Region filter bar div must be present"
-    assert 'data-rgn="london"' in content, "London region button missing"
-    assert 'data-rgn="north"' in content, "North region button (Manchester) missing"
-    assert 'data-rgn="remote"' in content, "Remote region button missing"
-    assert "London (2)" in content, "London count badge should show 2"
+    assert 'id="filter-region"' in content, "Region filter dropdown must be present"
+    assert 'value="london"' in content, "London region option missing"
+    assert 'value="north"' in content, "North region option (Manchester) missing"
+    assert 'value="remote"' in content, "Remote region option missing"
+    assert "London (2)" in content, "London count should show 2"
 
 
 # ---------------------------------------------------------------------------
@@ -491,9 +492,9 @@ def test_region_filter_js_present(tmp_path: Path) -> None:
     out = render_weekly_html([listing], meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
 
-    assert "data-rgn" in content, "Filter JS must reference data-rgn attribute"
-    assert "activeRgn" in content, "Filter JS must maintain activeRgn state"
-    assert "region-filter-bar" in content, "Filter JS must reference region-filter-bar"
+    assert "filter-region" in content, "Filter JS must reference filter-region select"
+    assert "data-region" in content, "Filter JS must reference data-region attribute on cards"
+    assert "selRgn" in content, "Filter JS must maintain selRgn reference"
 
 
 # ---------------------------------------------------------------------------
@@ -570,11 +571,11 @@ def test_jobtype_filter_bar_lists_expected_types(tmp_path: Path) -> None:
     out = render_weekly_html(listings, meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
 
-    assert 'id="jobtype-filter-bar"' in content, "Job type filter bar div must be present"
-    assert 'data-jt="project-manager"' in content, "Project Manager button missing"
-    assert 'data-jt="project-engineer"' in content, "Project Engineer button missing"
-    assert 'data-jt="document-controller"' in content, "Document Controller button missing"
-    assert "Project Manager (2)" in content, "Project Manager count badge should show 2"
+    assert 'id="filter-jobtype"' in content, "Job type filter dropdown must be present"
+    assert 'value="project-manager"' in content, "Project Manager option missing"
+    assert 'value="project-engineer"' in content, "Project Engineer option missing"
+    assert 'value="document-controller"' in content, "Document Controller option missing"
+    assert "Project Manager (2)" in content, "Project Manager count should show 2"
 
 
 # ---------------------------------------------------------------------------
@@ -614,7 +615,6 @@ def test_jobtype_filter_js_present(tmp_path: Path) -> None:
     out = render_weekly_html([listing], meta, tmp_path / "report.html")
     content = out.read_text(encoding="utf-8")
 
-    assert "data-jt" in content, "Filter JS must reference data-jt attribute"
-    assert "activeJobType" in content, "Filter JS must maintain activeJobType state"
-    assert "jobtype-filter-bar" in content, "Filter JS must reference jobtype-filter-bar"
+    assert "filter-jobtype" in content, "Filter JS must reference filter-jobtype select"
     assert "data-jobtype" in content, "Cards must carry data-jobtype attribute"
+    assert "selJt" in content, "Filter JS must maintain selJt reference"
