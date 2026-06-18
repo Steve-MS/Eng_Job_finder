@@ -207,6 +207,67 @@ keywords_list = [
     "project planner",
 ]
 
+# Advance TRS — WordPress / WP Job Manager REST API.
+# Endpoint: GET /wp-json/wp/v2/job-listings?job-types=7&per_page=100&page=N
+# job-types=7 filters to Contract roles only. No keyword search available;
+# all 102 contract roles are fetched across 2 pages and downstream pipeline
+# applies role/keyword filters.
+# robots.txt: allows crawlers; no bot protection observed (2026-06-18).
+[sources.advance_trs]
+enabled = true
+crawl_delay = 3
+
+# Drupal/Jobiqo job boards — 3 sites sharing the same URL pattern.
+# Building4Jobs uses Jobiqo/Next.js (__NEXT_DATA__ JSON extraction).
+# NCE Careers and Careers in Construction use Drupal Epiq Jobs HTML scrape.
+# robots.txt: all 3 sites allow crawling of /jobs paths.
+[sources.building4jobs]
+enabled = true
+crawl_delay = 5
+platform = "jobiqo"
+base_url = "https://www.building4jobs.com"
+max_pages_per_query = 5
+keywords_list = [
+    "project manager",
+    "project engineer",
+    "contracts manager",
+    "programme manager",
+    "quantity surveyor",
+    "commercial manager",
+    "project director",
+    "project planner",
+]
+
+[sources.nce_careers]
+enabled = true
+crawl_delay = 5
+platform = "drupal_epiq"
+base_url = "https://www.newcivilengineercareers.com"
+max_pages_per_query = 5
+keywords_list = [
+    "project manager",
+    "project engineer",
+    "contracts manager",
+    "programme manager",
+    "quantity surveyor",
+    "commercial manager",
+]
+
+[sources.careers_in_construction]
+enabled = true
+crawl_delay = 5
+platform = "drupal_epiq"
+base_url = "https://www.careersinconstruction.com"
+max_pages_per_query = 5
+keywords_list = [
+    "project manager",
+    "project engineer",
+    "contracts manager",
+    "programme manager",
+    "quantity surveyor",
+    "commercial manager",
+]
+
 # Turner & Townsend — SmartRecruiters-backed JSON API (no auth required).
 # POST /api/careers/searchvacancies with countries: ["United Kingdom"].
 # robots.txt: permissive (only /umbraco/ and auth paths blocked).

@@ -1,4 +1,4 @@
-# Michael — History
+﻿# Michael — History
 
 ## 2026-06-15: v0.2 sprint complete
 
@@ -113,17 +113,71 @@ limited; the adapter is working correctly.
 **Files changed:** `src/mechpm/adapters/manpower_group.py`, `tests/adapters/test_manpower_group.py`, `tests/fixtures/adapters/manpower_group_page1.html`, `config.toml`, `src/mechpm/cli.py`.
 **Decision drop:** `.squad/decisions/inbox/michael-manpower-group.md`
 
+## 2026-06-18: Advance TRS adapter shipped
+
+New adapter: `src/mechpm/adapters/advance_trs.py` (`AdvanceTrsAdapter`).
+
+**Strategy:** GET WP Job Manager REST API at `/wp-json/wp/v2/job-listings?job-types=7&per_page=100&page=N`.
+- `job-types=7` filters to Contract roles server-side — no keyword search needed.
+- Pagination driven by `x-wp-totalpages` response header (currently 2 pages / 102 jobs).
+- Source listing ID: WP `id` field (integer, stored as string).
+- `posted_at`: WP `date` field format `"2026-06-15T10:00:00"` treated as UTC.
+- `salary_raw`: often empty — stored as `None` when blank/whitespace.
+- `contract_type_raw`: set to `"Contract"` when `job-types` array contains 7.
+- employer: `meta._company_name` with fallback to `_EMPLOYER` constant.
+- Agency: always None (Advance TRS is the employer/recruiter).
+
+**Config:** `[sources.advance_trs]` — no `keywords_list`; single flat fetch.
+**Test suite:** 46 new tests, all passing; 809 total passing (25 skipped).
+**Files changed:** `src/mechpm/adapters/advance_trs.py`, `tests/adapters/test_advance_trs.py`, `config.toml`, `src/mechpm/cli.py`.
+**Decision drop:** `.squad/decisions/inbox/michael-advance-trs.md`
+
+## 2026-06-18: Drupal Job Board adapter shipped (Building4Jobs, NCE Careers, CIC)
+
+New adapter: `src/mechpm/adapters/drupal_jobboard.py` (`DrupalJobBoardAdapter`).
+
+**Discovery (live recon 2026-06-18):**
+- Task description said "all 3 sites run Drupal + Search API." Reality was more complex:
+  - **Building4Jobs** runs Next.js/Jobiqo (NOT Drupal). Jobs in `__NEXT_DATA__` JSON.
+  - **NCE Careers** and **Careers in Construction** run Drupal Epiq Jobs (server-rendered HTML).
+  - NCE and CIC have identical HTML structure (same Drupal Epiq Jobs theme).
+- Building4Jobs pagination: 1-indexed (page=0 == page=1; page=2 is second batch of 10).
+- NCE/CIC pagination: 0-indexed (standard Drupal).
+
+**Strategy:** Single `DrupalJobBoardAdapter` class dispatches to two parsers via `platform` config key:
+- `platform = "jobiqo"` -> `parse_jobiqo_html()`: extract `__NEXT_DATA__` JSON from Next.js page.
+- `platform = "drupal_epiq"` -> `parse_drupal_epiq_html()`: selectolax HTML parse.
+
+**Field map — Jobiqo:** id -> source_listing_id; organization (str) -> employer;
+address (list[str]) -> location_raw ([0]); salaryRange (list[Term]) -> salary_raw ([0]["label"]);
+published (ISO 8601 with tz offset) -> posted_at.
+
+**Field map — Drupal Epiq Jobs:** article[id="node-N"] -> source_listing_id;
+h2.node__title a[title] -> title + href -> url; div.description span.date -> posted_at;
+span.recruiter-company-profile-job-organization a -> employer; div.location span -> location_raw.
+
+**Test suite:** 68 new tests, all passing; 877 total passing (25 skipped).
+**Files changed:** `src/mechpm/adapters/drupal_jobboard.py`, `tests/adapters/test_drupal_jobboard.py`,
+  `tests/fixtures/adapters/building4jobs_page1.html`, `tests/fixtures/adapters/nce_careers_page1.html`,
+  `tests/fixtures/adapters/careers_in_construction_page1.html`, `config.toml`, `src/mechpm/cli.py`.
+**Config keys:** `[sources.building4jobs]`, `[sources.nce_careers]`, `[sources.careers_in_construction]`.
+**Decision drop:** `.squad/decisions/inbox/michael-drupal-jobboard.md`
+
 ## Learnings
 
-- T&T SmartRecruiters proxy: POST JSON to `/api/careers/searchvacancies`; MUST send
-  `countries: ["United Kingdom"]` (not "gb" or "uk") — documented in coordinator recon.
-- Listing ID lives in the numeric tail of the `ref` field (SmartRecruiters posting URL).
-- Detail enrichment is opt-in: `enrich_detail = false` in config keeps run fast;
-  set true to get contract_type_raw and full HTML description.
-- Pattern for optional enrichment: expose `_apply_detail(listing, detail_json) → RawListing`
-  as module-level function for direct test coverage without HTTP.
-- `model_copy(update={...})` is the correct Pydantic v2 way to produce updated copies
-  of immutable-ish BaseModel instances.
-- Patch `asyncio.sleep` with `AsyncMock(return_value=None)` in fetch() tests to avoid
-  real delays from inter-page sleeps.
-
+- **Jobiqo/Next.js sites:** Jobs are in `__NEXT_DATA__` JSON under `props.pageProps.data.jobs.pages[]`.
+  Field types differ from PowerShell display: `address` is `list[str]` (take [0]),
+  `salaryRange` is `list[Term]` (take [0]["label"]), `published` is ISO 8601 with tz offset.
+  Always verify field types in Python (json.loads()) not PowerShell (ConvertFrom-Json).
+- **Jobiqo pagination** is 1-indexed: page=0 == page=1 (first batch); page=2 is second. Start at page=1.
+- **Drupal Epiq Jobs pagination** is 0-indexed. Stop when no `div.views-row article` found.
+- **Do NOT trust task discovery notes** as ground truth — always fetch live, inspect Python types.
+- **Epiq Jobs date selector:** use `div.description span.date` (absolute), not `div.job__date` (relative).
+- **Epiq Jobs title:** use `h2.node__title a.recruiter-job-link[title]` attr to avoid badge bleed-through.
+- WP Job Manager REST API: GET `/wp-json/wp/v2/job-listings`; use `?job-types=<id>` to filter.
+- Pagination via `x-wp-totalpages` response header (not in body); default to 1 if absent.
+- WP date format is `"2026-06-15T10:00:00"` without timezone — treat as UTC.
+- Always patch `mechpm.adapters.<module>.asyncio.sleep` (not bare `asyncio.sleep`).
+- T&T: POST JSON to `/api/careers/searchvacancies`; send `countries: ["United Kingdom"]`.
+- Detail enrichment is opt-in: `enrich_detail = false` keeps run fast.
+- `model_copy(update={...})` is correct Pydantic v2 for updated copies.

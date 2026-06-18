@@ -40,6 +40,8 @@ def _get_registry() -> dict:
         from mechpm.adapters.michael_page import MichaelPageAdapter
         from mechpm.adapters.manpower_group import ManpowerGroupAdapter
         from mechpm.adapters.turner_townsend import TurnerTownsendAdapter
+        from mechpm.adapters.advance_trs import AdvanceTrsAdapter
+        from mechpm.adapters.drupal_jobboard import DrupalJobBoardAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -53,6 +55,10 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["michael_page"] = MichaelPageAdapter
         _ADAPTER_REGISTRY["manpower_group"] = ManpowerGroupAdapter
         _ADAPTER_REGISTRY["turner_townsend"] = TurnerTownsendAdapter
+        _ADAPTER_REGISTRY["advance_trs"] = AdvanceTrsAdapter
+        _ADAPTER_REGISTRY["building4jobs"] = DrupalJobBoardAdapter
+        _ADAPTER_REGISTRY["nce_careers"] = DrupalJobBoardAdapter
+        _ADAPTER_REGISTRY["careers_in_construction"] = DrupalJobBoardAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -187,6 +193,31 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     keywords_list=cfg.keywords_list,
                     max_pages_per_query=extra_tt.get("max_pages_per_query", 5),
                     enrich_detail=extra_tt.get("enrich_detail", False),
+                )
+            )
+        elif name == "advance_trs":
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                )
+            )
+        elif name in ("building4jobs", "nce_careers", "careers_in_construction"):
+            extra_djb: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            base_url = extra_djb.get("base_url", "")
+            if not base_url:
+                log.warning(
+                    "Source '%s' missing 'base_url' in config.toml — skipping.",
+                    name,
+                )
+                continue
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    name=name,
+                    base_url=base_url,
+                    platform=extra_djb.get("platform", "drupal_epiq"),
+                    keywords_list=cfg.keywords_list,
+                    crawl_delay=cfg.crawl_delay,
+                    max_pages_per_query=extra_djb.get("max_pages_per_query", 5),
                 )
             )
         else:
