@@ -590,7 +590,7 @@ def test_classify_job_type_logic() -> None:
     assert classify_job_type("Quality Assurance Engineer") == "Assurance"
     assert classify_job_type("Project Manager") == "Project Manager"
     assert classify_job_type("Programme Manager") == "Project Manager"
-    assert classify_job_type("Construction Manager – M&E") == "Project Manager"
+    assert classify_job_type("Construction Manager – M&E") == "Other"
     assert classify_job_type("Commissioning Manager") == "Project Manager"
     assert classify_job_type("Project Planner") == "Planner"
     assert classify_job_type("Planning Engineer (Nuclear)") == "Planner"

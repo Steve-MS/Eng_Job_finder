@@ -45,12 +45,10 @@ PM_TITLE_RE = re.compile(
     r"|p\.?m\.?(?=[\s,\-]|$)"  # standalone "PM" abbreviation (conservative)
     # --- NEW (A1): sector-specific PM titles common on Energy Jobline / Adzuna ---
     r"|engineering\s+manager"                 # "Engineering Manager (Contract)"
-    r"|construction\s+manager"               # "Construction Manager — M&E"
     r"|site\s+manager"                       # "Site Manager (Mechanical)"
     r"|commissioning\s+manager"              # "Commissioning Manager"
     r"|m\s*&\s*e\s+manager"                  # "M&E Manager"
     r"|installations?\s+manager"             # "Installation Manager"
-    r"|contracts?\s+manager"                 # "Contract Manager (Engineering)"
     r"|project\s+engineer"                   # "Project Engineer" (PM-adjacent in energy)
     r"|planning\s+manager"                   # "Planning Manager (Mechanical)"
     r"|package\s+manager"                    # "Package Manager — HVAC"

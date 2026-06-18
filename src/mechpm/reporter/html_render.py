@@ -526,7 +526,7 @@ _JOBTYPE_RULES: list[tuple[_re.Pattern[str], str]] = [
     (_re.compile(r"planner|planning\s+engineer", _re.IGNORECASE), "Planner"),
     (_re.compile(r"site\s+manager", _re.IGNORECASE), "Site Manager"),
     (_re.compile(r"project\s+engineer", _re.IGNORECASE), "Project Engineer"),
-    (_re.compile(r"project\s+manager|programme\s+manager|construction\s+manager|commissioning", _re.IGNORECASE), "Project Manager"),
+    (_re.compile(r"project\s+manager|programme\s+manager|commissioning", _re.IGNORECASE), "Project Manager"),
 ]
 
 _JOBTYPE_SLUG: dict[str, str] = {
