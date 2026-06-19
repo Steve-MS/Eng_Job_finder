@@ -268,6 +268,67 @@ keywords_list = [
     "commercial manager",
 ]
 
+# CIOB Jobs — Chartered Institute of Building official job board.
+# Standard WordPress RSS 2.0 feed; no authentication required.
+# Single GET per run (no pagination); rolling window of recent postings.
+# robots.txt: permissive; no bot-management blocking observed (2026-06-19).
+[sources.ciob_jobs]
+enabled = true
+crawl_delay = 2
+feed_url = "https://ciobjobs.com/feed/"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+# AtkinsRéalis — ConnectID-powered JSON API.
+# GET /api/jobs/token returns a public Bearer JWT (1 hour TTL).
+# POST /api/jobs/jobs with keyword + location filter for UK roles.
+# No Cloudflare or bot-management blocking observed on the API subdomain.
+# Live discovery probe: 2026-06-19.
+[sources.atkinsrealis]
+enabled = true
+crawl_delay = 2
+api_base = "https://atkinsats-prod-api.connectid.cloud"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+# RailRecruiter — UK rail-sector job board (www.railrecruiter.co.uk).
+# ASP.NET WebForms site with browser-fingerprint challenge (/_xhrc.ashx).
+# Session setup: GET /jobs/ → POST /_xhrc.ashx → GET clean search URL.
+# Search URL format: /jobs/job-search-results/kw-{keyword-slug}/co-225/
+# robots.txt: Crawl-delay 0.2 (we use 3 s for politeness; ClaudeBot blocked
+# so Chrome UA is sent). Discovery probe: 2026-06-19.
+[sources.railrecruiter]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.railrecruiter.co.uk"
+max_pages_per_query = 5
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
 # Turner & Townsend — SmartRecruiters-backed JSON API (no auth required).
 # POST /api/careers/searchvacancies with countries: ["United Kingdom"].
 # robots.txt: permissive (only /umbraco/ and auth paths blocked).

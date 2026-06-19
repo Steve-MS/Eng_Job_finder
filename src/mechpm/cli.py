@@ -42,6 +42,9 @@ def _get_registry() -> dict:
         from mechpm.adapters.turner_townsend import TurnerTownsendAdapter
         from mechpm.adapters.advance_trs import AdvanceTrsAdapter
         from mechpm.adapters.drupal_jobboard import DrupalJobBoardAdapter
+        from mechpm.adapters.atkinsrealis import AtkinsRealisAdapter
+        from mechpm.adapters.ciob_jobs import CiobJobsAdapter
+        from mechpm.adapters.railrecruiter import RailRecruiterAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -59,6 +62,9 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["building4jobs"] = DrupalJobBoardAdapter
         _ADAPTER_REGISTRY["nce_careers"] = DrupalJobBoardAdapter
         _ADAPTER_REGISTRY["careers_in_construction"] = DrupalJobBoardAdapter
+        _ADAPTER_REGISTRY["atkinsrealis"] = AtkinsRealisAdapter
+        _ADAPTER_REGISTRY["ciob_jobs"] = CiobJobsAdapter
+        _ADAPTER_REGISTRY["railrecruiter"] = RailRecruiterAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -201,6 +207,15 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     crawl_delay=cfg.crawl_delay,
                 )
             )
+        elif name == "ciob_jobs":
+            extra_ciob: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    feed_url=extra_ciob.get("feed_url", "https://ciobjobs.com/feed/"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                )
+            )
         elif name in ("building4jobs", "nce_careers", "careers_in_construction"):
             extra_djb: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
             base_url = extra_djb.get("base_url", "")
@@ -218,6 +233,15 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     keywords_list=cfg.keywords_list,
                     crawl_delay=cfg.crawl_delay,
                     max_pages_per_query=extra_djb.get("max_pages_per_query", 5),
+                )
+            )
+        elif name == "atkinsrealis":
+            extra_ar: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    api_base=extra_ar.get("api_base", "https://atkinsats-prod-api.connectid.cloud"),
                 )
             )
         else:

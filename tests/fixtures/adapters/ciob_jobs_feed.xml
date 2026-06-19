@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample CIOB Jobs RSS 2.0 feed fixture — captured pattern 2026-06-19 -->
+<rss version="2.0"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>CIOB Jobs &#8211; Jobs in Building and Construction</title>
+    <atom:link href="https://ciobjobs.com/feed/" rel="self" type="application/rss+xml"/>
+    <link>https://ciobjobs.com</link>
+    <description>The Official Job Board for the Chartered Institute of Building</description>
+    <language>en-GB</language>
+
+    <item>
+      <title>Senior Project Manager &#8211; Major Infrastructure</title>
+      <link>https://ciobjobs.com/job/senior-project-manager-major-infrastructure/</link>
+      <pubDate>Thu, 19 Jun 2026 08:00:00 +0000</pubDate>
+      <dc:creator><![CDATA[ciobjobs]]></dc:creator>
+      <guid isPermaLink="false">https://ciobjobs.com/?p=12345</guid>
+      <description><![CDATA[<p>An exciting opportunity for a Senior Project Manager.</p>]]></description>
+      <content:encoded><![CDATA[<p><strong>Location:</strong> London, UK</p>
+<p><strong>Salary:</strong> &#163;70,000 &#8211; &#163;85,000 per annum</p>
+<p><strong>Employer:</strong> ABC Infrastructure Ltd</p>
+<p>We are seeking an experienced Senior Project Manager to lead major infrastructure
+projects across the UK. The ideal candidate will have a strong background in
+construction project management, delivering large-scale projects on time and within
+budget.</p>
+<p><strong>Key Responsibilities:</strong></p>
+<ul>
+<li>Lead and manage project teams</li>
+<li>Deliver projects to time, cost and quality</li>
+<li>Stakeholder management at board level</li>
+</ul>]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Quantity Surveyor &#8211; Commercial Buildings</title>
+      <link>https://ciobjobs.com/job/quantity-surveyor-commercial-buildings/</link>
+      <pubDate>Mon, 15 Jun 2026 09:30:00 +0000</pubDate>
+      <dc:creator><![CDATA[ciobjobs]]></dc:creator>
+      <guid isPermaLink="false">https://ciobjobs.com/?p=12346</guid>
+      <description><![CDATA[<p>Quantity Surveyor required for commercial building projects.</p>]]></description>
+      <content:encoded><![CDATA[<p><strong>Location:</strong> Manchester</p>
+<p><strong>Salary:</strong> &#163;45,000 &#8211; &#163;55,000</p>
+<p><strong>Employer:</strong> XYZ Construction Group</p>
+<p>We are looking for an experienced Quantity Surveyor to join our commercial
+buildings division in Manchester.</p>]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Project Director &#8211; Built Environment</title>
+      <link>https://ciobjobs.com/job/project-director-built-environment/</link>
+      <pubDate>Fri, 10 Jun 2026 11:00:00 +0000</pubDate>
+      <dc:creator><![CDATA[ciobjobs]]></dc:creator>
+      <guid isPermaLink="false">https://ciobjobs.com/?p=12347</guid>
+      <description><![CDATA[<p>Project Director position in the built environment sector.</p>]]></description>
+      <content:encoded><![CDATA[<p>Senior leadership role for an experienced Project Director.</p>]]></content:encoded>
+    </item>
+
+  </channel>
+</rss>
