@@ -1,27 +1,27 @@
-"""Unit tests for the CIOB Jobs RSS adapter.
+"""Unit tests for the CIOB Jobs WP REST API adapter.
 
 All tests use synthetic data and mocked HTTP — no live network calls.
 
-Coverage (36 tests):
-  _parse_pub_date        : RFC 2822, UTC normalisation, None, empty, whitespace, garbage
-  _extract_id_from_url   : slug extraction, trailing slash, empty URL fallback
-  _strip_html            : tag removal, plain-text passthrough
-  _extract_field         : match, no match
-  _parse_item            : full mapping, missing title/link, content:encoded
-                           preference, description fallback, location/salary/
-                           employer extraction, no-content path, metadata fields
-  CiobJobsAdapter ctor   : defaults, custom crawl_delay, custom feed_url,
-                           extra kwargs accepted
-  _parse_feed            : fixture XML (3 items), since filter, no-date always
-                           included, dedup, malformed XML, missing channel,
-                           empty channel
-  fetch()                : happy path, HTTP error, network error, source name
+Coverage (54 tests):
+  _strip_html            : tag removal, plain-text passthrough, nested tags, empty
+  _extract_field         : location/salary/employer match, no match
+  _parse_wp_date         : full datetime, plain date, short format, None, empty,
+                           whitespace, garbage, midnight
+  _item_to_raw_listing   : full field mapping, id/title/link guards, empty fields,
+                           location/salary/employer extraction, no extractions,
+                           metadata (wp_id, industry_sector, job_sector, job_specialism),
+                           source_listing_id as string, contract_type_raw is None
+  CiobJobsAdapter ctor   : defaults (name, crawl_delay, api_base, per_page, max_pages),
+                           keywords_list accepted, extra kwargs ignored, custom api_base
+  fetch()                : happy path, source name, two-page pagination, max_pages cap,
+                           dedup across keywords, dedup across pages, since filter,
+                           since keeps no-date entries, HTTP error, request error,
+                           JSON parse failure, non-list body, empty results,
+                           missing totalpages header, multiple keywords all queried
 """
 from __future__ import annotations
 
 import asyncio
-import pathlib
-import re
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -29,178 +29,81 @@ import pytest
 
 from mechpm.adapters.ciob_jobs import (
     CiobJobsAdapter,
-    _NS_CONTENT,
     _RE_EMPLOYER,
     _RE_LOCATION,
     _RE_SALARY,
     _SOURCE_NAME,
     _extract_field,
-    _extract_id_from_url,
-    _parse_item,
-    _parse_pub_date,
+    _item_to_raw_listing,
+    _parse_wp_date,
     _strip_html,
 )
 
-_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "adapters"
-_FEED_FIXTURE = _FIXTURES / "ciob_jobs_feed.xml"
-
 
 # ---------------------------------------------------------------------------
-# Inline minimal RSS helpers
+# Synthetic fixture helpers
 # ---------------------------------------------------------------------------
 
-def _item_xml(
-    title: str = "Senior Project Manager",
-    link: str = "https://ciobjobs.com/job/senior-project-manager/",
-    pub_date: str = "Thu, 19 Jun 2026 08:00:00 +0000",
-    description: str = "<p>Brief excerpt.</p>",
-    content_encoded: str | None = "<p>Location: London</p><p>Salary: £60,000</p><p>Employer: ABC Ltd</p>",
-    guid: str = "https://ciobjobs.com/?p=12345",
-) -> str:
-    """Build a minimal RSS <item> XML string."""
-    content_block = ""
-    if content_encoded is not None:
-        content_block = (
-            f'<content:encoded><![CDATA[{content_encoded}]]></content:encoded>'
-        )
-    return (
-        f'<item '
-        f'xmlns:content="http://purl.org/rss/1.0/modules/content/" '
-        f'xmlns:dc="http://purl.org/dc/elements/1.1/">'
-        f"<title>{title}</title>"
-        f"<link>{link}</link>"
-        f"<pubDate>{pub_date}</pubDate>"
-        f"<guid>{guid}</guid>"
-        f"<description><![CDATA[{description}]]></description>"
-        f"{content_block}"
-        f"</item>"
-    )
+
+def _make_item(
+    wp_id: int = 132073,
+    title: str = "Project Civil Engineer",
+    link: str = "https://ciobjobs.com/job/132073/project-civil-engineer/",
+    date: str = "2026-06-19T09:35:51",
+    description_html: str = "<p>Location: London</p><p>Salary: £500/day</p><p>Employer: Build Corp Ltd</p>",
+    industry_sector: list[int] | None = None,
+    job_sector: list[int] | None = None,
+    job_specialism: list[int] | None = None,
+) -> dict:
+    """Build a synthetic WP REST API job response item."""
+    return {
+        "id": wp_id,
+        "date": date,
+        "date_gmt": date,
+        "slug": title.lower().replace(" ", "-"),
+        "link": link,
+        "title": {"rendered": title},
+        "content": {"rendered": description_html},
+        "industry-sector": industry_sector or [96],
+        "job-sector": job_sector or [431],
+        "job-specialism": job_specialism or [341],
+    }
 
 
-def _feed_xml(*item_xmls: str) -> str:
-    """Wrap item XML strings in a minimal RSS 2.0 envelope."""
-    items = "".join(item_xmls)
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<rss version="2.0" '
-        'xmlns:content="http://purl.org/rss/1.0/modules/content/" '
-        'xmlns:dc="http://purl.org/dc/elements/1.1/">'
-        "<channel>"
-        "<title>CIOB Jobs</title>"
-        "<link>https://ciobjobs.com</link>"
-        f"{items}"
-        "</channel>"
-        "</rss>"
-    )
+def _make_mock_response(
+    items: list[dict],
+    status_code: int = 200,
+    total: int | None = None,
+    total_pages: int = 1,
+) -> MagicMock:
+    """Build a mock httpx response."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = items
+    resp.headers = {
+        "x-wp-total": str(total if total is not None else len(items)),
+        "x-wp-totalpages": str(total_pages),
+        "content-type": "application/json; charset=UTF-8",
+    }
+    return resp
 
 
-def _mock_http_client(response_text: str, status_code: int = 200) -> AsyncMock:
-    """Build a mock httpx.AsyncClient that returns a canned response."""
-    mock_response = MagicMock()
-    mock_response.status_code = status_code
-    mock_response.text = response_text
+def _mock_client(page_responses: list[MagicMock]) -> AsyncMock:
+    """Build a mock httpx.AsyncClient whose GET calls return page_responses in order."""
+    call_index = [0]
+
+    async def _get(url, **kwargs):
+        idx = call_index[0]
+        call_index[0] += 1
+        if idx < len(page_responses):
+            return page_responses[idx]
+        return _make_mock_response([], total=0, total_pages=1)
 
     mock = AsyncMock()
     mock.__aenter__ = AsyncMock(return_value=mock)
     mock.__aexit__ = AsyncMock(return_value=False)
-    mock.get = AsyncMock(return_value=mock_response)
+    mock.get = AsyncMock(side_effect=_get)
     return mock
-
-
-def _parse_item_from_xml(xml_str: str):
-    """Parse a standalone <item> XML string and pass its ET element to _parse_item."""
-    import xml.etree.ElementTree as ET
-    return _parse_item(ET.fromstring(xml_str))
-
-
-# ===========================================================================
-# _parse_pub_date
-# ===========================================================================
-
-
-class TestParsePubDate:
-    def test_rfc2822_utc_zero_offset(self):
-        dt = _parse_pub_date("Thu, 19 Jun 2026 08:00:00 +0000")
-        assert dt is not None
-        assert dt.year == 2026
-        assert dt.month == 6
-        assert dt.day == 19
-        assert dt.hour == 8
-        assert dt.minute == 0
-        assert dt.tzinfo == timezone.utc
-
-    def test_rfc2822_non_utc_normalised_to_utc(self):
-        # 10:00 BST (+0100) → 09:00 UTC
-        dt = _parse_pub_date("Mon, 15 Jun 2026 10:00:00 +0100")
-        assert dt is not None
-        assert dt.hour == 9
-        assert dt.tzinfo == timezone.utc
-
-    def test_result_is_always_utc_aware(self):
-        dt = _parse_pub_date("Fri, 10 Jun 2026 11:00:00 +0000")
-        assert dt is not None
-        assert dt.tzinfo == timezone.utc
-
-    def test_none_returns_none(self):
-        assert _parse_pub_date(None) is None
-
-    def test_empty_string_returns_none(self):
-        assert _parse_pub_date("") is None
-
-    def test_whitespace_only_returns_none(self):
-        assert _parse_pub_date("   ") is None
-
-    def test_garbage_returns_none(self):
-        assert _parse_pub_date("not-a-date") is None
-
-    def test_iso_fallback_datetime(self):
-        dt = _parse_pub_date("2026-06-15T10:00:00")
-        assert dt is not None
-        assert dt.year == 2026
-        assert dt.month == 6
-        assert dt.day == 15
-
-    def test_iso_fallback_date_only(self):
-        dt = _parse_pub_date("2026-01-20")
-        assert dt is not None
-        assert dt.year == 2026
-        assert dt.month == 1
-        assert dt.day == 20
-
-
-# ===========================================================================
-# _extract_id_from_url
-# ===========================================================================
-
-
-class TestExtractIdFromUrl:
-    def test_slug_from_canonical_job_url(self):
-        url = "https://ciobjobs.com/job/senior-project-manager-major-infrastructure/"
-        slug = _extract_id_from_url(url)
-        assert slug == "senior-project-manager-major-infrastructure"
-
-    def test_trailing_slash_is_stripped(self):
-        url = "https://ciobjobs.com/job/quantity-surveyor/"
-        assert _extract_id_from_url(url) == "quantity-surveyor"
-
-    def test_url_without_trailing_slash(self):
-        url = "https://ciobjobs.com/job/project-director"
-        assert _extract_id_from_url(url) == "project-director"
-
-    def test_empty_url_returns_hash(self):
-        result = _extract_id_from_url("")
-        assert len(result) == 16
-        assert result.isalnum()
-
-    def test_root_url_returns_hash(self):
-        # No slug available from "/" path
-        result = _extract_id_from_url("https://ciobjobs.com/")
-        assert len(result) == 16
-
-    def test_query_only_url_returns_hash(self):
-        # WordPress non-permalink GUID: no path slug
-        result = _extract_id_from_url("https://ciobjobs.com/?p=12345")
-        assert len(result) == 16
 
 
 # ===========================================================================
@@ -213,8 +116,7 @@ class TestStripHtml:
         assert "Hello World" in _strip_html("<p>Hello World</p>")
 
     def test_plain_text_unchanged(self):
-        text = "No HTML here"
-        result = _strip_html(text)
+        result = _strip_html("No HTML here")
         assert "No HTML here" in result
 
     def test_strips_nested_tags(self):
@@ -232,20 +134,17 @@ class TestStripHtml:
 
 class TestExtractField:
     def test_location_match(self):
-        text = "Location: Manchester, UK"
-        result = _extract_field(_RE_LOCATION, text)
+        result = _extract_field(_RE_LOCATION, "Location: Manchester, UK")
         assert result is not None
         assert "Manchester" in result
 
     def test_salary_match(self):
-        text = "Salary: £50,000 - £60,000 per annum"
-        result = _extract_field(_RE_SALARY, text)
+        result = _extract_field(_RE_SALARY, "Salary: £50,000 - £60,000 per annum")
         assert result is not None
         assert "£50,000" in result
 
     def test_employer_match(self):
-        text = "Employer: ABC Construction Ltd"
-        result = _extract_field(_RE_EMPLOYER, text)
+        result = _extract_field(_RE_EMPLOYER, "Employer: ABC Construction Ltd")
         assert result is not None
         assert "ABC Construction" in result
 
@@ -254,108 +153,183 @@ class TestExtractField:
 
 
 # ===========================================================================
-# _parse_item
+# _parse_wp_date
 # ===========================================================================
 
 
-class TestParseItem:
+class TestParseWpDate:
+    def test_full_wp_datetime(self):
+        dt = _parse_wp_date("2026-06-19T09:35:51")
+        assert dt is not None
+        assert dt.year == 2026
+        assert dt.month == 6
+        assert dt.day == 19
+        assert dt.hour == 9
+        assert dt.minute == 35
+        assert dt.tzinfo == timezone.utc
+
+    def test_plain_date(self):
+        dt = _parse_wp_date("2026-01-20")
+        assert dt is not None
+        assert dt.year == 2026
+        assert dt.month == 1
+        assert dt.day == 20
+        assert dt.tzinfo == timezone.utc
+
+    def test_short_hhmm_format(self):
+        dt = _parse_wp_date("2026-03-05T14:30")
+        assert dt is not None
+        assert dt.month == 3
+        assert dt.day == 5
+        assert dt.hour == 14
+
+    def test_none_returns_none(self):
+        assert _parse_wp_date(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert _parse_wp_date("") is None
+
+    def test_whitespace_only_returns_none(self):
+        assert _parse_wp_date("   ") is None
+
+    def test_garbage_returns_none(self):
+        assert _parse_wp_date("not-a-date") is None
+
+    def test_midnight_datetime(self):
+        dt = _parse_wp_date("2026-06-01T00:00:00")
+        assert dt is not None
+        assert dt.hour == 0
+        assert dt.minute == 0
+
+
+# ===========================================================================
+# _item_to_raw_listing
+# ===========================================================================
+
+
+class TestItemToRawListing:
     def test_basic_field_mapping(self):
-        xml = _item_xml()
-        listing = _parse_item_from_xml(xml)
+        item = _make_item()
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.source == _SOURCE_NAME
-        assert listing.title == "Senior Project Manager"
-        assert listing.url == "https://ciobjobs.com/job/senior-project-manager/"
+        assert listing.title == "Project Civil Engineer"
+        assert listing.url == "https://ciobjobs.com/job/132073/project-civil-engineer/"
         assert listing.agency is None
-        assert listing.contract_type_raw is None
 
-    def test_source_listing_id_from_url_slug(self):
-        xml = _item_xml(link="https://ciobjobs.com/job/project-director/")
-        listing = _parse_item_from_xml(xml)
+    def test_source_listing_id_is_string_of_wp_id(self):
+        item = _make_item(wp_id=42)
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert listing.source_listing_id == "project-director"
+        assert isinstance(listing.source_listing_id, str)
+        assert listing.source_listing_id == "42"
 
-    def test_posted_at_parsed_from_pub_date(self):
-        xml = _item_xml(pub_date="Thu, 19 Jun 2026 08:00:00 +0000")
-        listing = _parse_item_from_xml(xml)
+    def test_posted_at_parsed_from_date(self):
+        item = _make_item(date="2026-06-19T09:35:51")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.posted_at is not None
         assert listing.posted_at.year == 2026
         assert listing.posted_at.month == 6
         assert listing.posted_at.day == 19
 
-    def test_content_encoded_preferred_over_description(self):
-        xml = _item_xml(
-            description="<p>Short excerpt.</p>",
-            content_encoded="<p>Full HTML body with all details.</p>",
-        )
-        listing = _parse_item_from_xml(xml)
+    def test_description_raw_from_content_rendered(self):
+        html = "<p>Full HTML job description.</p>"
+        item = _make_item(description_html=html)
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert "Full HTML body" in (listing.description_raw or "")
+        assert listing.description_raw == html
 
-    def test_description_fallback_when_no_content_encoded(self):
-        xml = _item_xml(content_encoded=None)
-        listing = _parse_item_from_xml(xml)
+    def test_empty_description_becomes_none(self):
+        item = _make_item(description_html="")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert "Brief excerpt" in (listing.description_raw or "")
+        assert listing.description_raw is None
 
-    def test_location_extracted_from_content(self):
-        xml = _item_xml(content_encoded="<p>Location: Birmingham</p>")
-        listing = _parse_item_from_xml(xml)
+    def test_location_extracted_from_html_content(self):
+        item = _make_item(description_html="<p>Location: Birmingham</p>")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.location_raw is not None
         assert "Birmingham" in listing.location_raw
 
-    def test_salary_extracted_from_content(self):
-        xml = _item_xml(content_encoded="<p>Salary: £45,000 - £55,000</p>")
-        listing = _parse_item_from_xml(xml)
+    def test_salary_extracted_from_html_content(self):
+        item = _make_item(description_html="<p>Salary: £400 - £450 per day</p>")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.salary_raw is not None
-        assert "£45,000" in listing.salary_raw
+        assert "£400" in listing.salary_raw
 
-    def test_employer_extracted_from_content(self):
-        xml = _item_xml(content_encoded="<p>Employer: Construct Corp Ltd</p>")
-        listing = _parse_item_from_xml(xml)
+    def test_employer_extracted_from_html_content(self):
+        item = _make_item(description_html="<p>Employer: Construct Corp Ltd</p>")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.employer is not None
         assert "Construct Corp" in listing.employer
 
     def test_no_structured_fields_gives_none_extractions(self):
-        xml = _item_xml(content_encoded="<p>Generic description with no labels.</p>")
-        listing = _parse_item_from_xml(xml)
+        item = _make_item(description_html="<p>Generic description with no labels.</p>")
+        listing = _item_to_raw_listing(item)
         assert listing is not None
         assert listing.location_raw is None
         assert listing.salary_raw is None
         assert listing.employer is None
 
+    def test_missing_id_returns_none(self):
+        item = _make_item()
+        del item["id"]
+        assert _item_to_raw_listing(item) is None
+
+    def test_none_id_returns_none(self):
+        item = _make_item()
+        item["id"] = None
+        assert _item_to_raw_listing(item) is None
+
+    def test_zero_id_returns_none(self):
+        item = _make_item()
+        item["id"] = 0
+        assert _item_to_raw_listing(item) is None
+
     def test_missing_title_returns_none(self):
-        xml = _item_xml(title="")
-        listing = _parse_item_from_xml(xml)
-        assert listing is None
+        item = _make_item()
+        item["title"] = {"rendered": ""}
+        assert _item_to_raw_listing(item) is None
 
     def test_missing_link_returns_none(self):
-        xml = _item_xml(link="")
-        listing = _parse_item_from_xml(xml)
-        assert listing is None
+        item = _make_item()
+        item["link"] = ""
+        assert _item_to_raw_listing(item) is None
 
-    def test_guid_stored_in_metadata(self):
-        xml = _item_xml(guid="https://ciobjobs.com/?p=99999")
-        listing = _parse_item_from_xml(xml)
+    def test_contract_type_raw_is_none(self):
+        # CIOB API has no contract-type taxonomy; always None
+        item = _make_item()
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert listing.metadata.get("guid") == "https://ciobjobs.com/?p=99999"
+        assert listing.contract_type_raw is None
 
-    def test_pub_date_raw_stored_in_metadata(self):
-        pub = "Thu, 19 Jun 2026 08:00:00 +0000"
-        xml = _item_xml(pub_date=pub)
-        listing = _parse_item_from_xml(xml)
+    def test_metadata_contains_wp_id(self):
+        item = _make_item(wp_id=99001)
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert listing.metadata.get("pub_date_raw") == pub
+        assert listing.metadata["wp_id"] == 99001
 
-    def test_empty_content_gives_none_description(self):
-        xml = _item_xml(description="", content_encoded=None)
-        listing = _parse_item_from_xml(xml)
+    def test_metadata_contains_industry_sector(self):
+        item = _make_item(industry_sector=[96, 97])
+        listing = _item_to_raw_listing(item)
         assert listing is not None
-        assert listing.description_raw is None
+        assert listing.metadata["industry_sector"] == [96, 97]
+
+    def test_metadata_contains_job_sector(self):
+        item = _make_item(job_sector=[431])
+        listing = _item_to_raw_listing(item)
+        assert listing is not None
+        assert listing.metadata["job_sector"] == [431]
+
+    def test_metadata_contains_job_specialism(self):
+        item = _make_item(job_specialism=[341, 342])
+        listing = _item_to_raw_listing(item)
+        assert listing is not None
+        assert listing.metadata["job_specialism"] == [341, 342]
 
 
 # ===========================================================================
@@ -371,137 +345,33 @@ class TestCiobJobsAdapterConstructor:
         adapter = CiobJobsAdapter()
         assert adapter.crawl_delay == 2
 
-    def test_default_feed_url(self):
+    def test_default_api_base(self):
         adapter = CiobJobsAdapter()
-        assert adapter.feed_url == "https://ciobjobs.com/feed/"
+        assert adapter.api_base == "https://ciobjobs.com"
 
-    def test_custom_crawl_delay(self):
-        adapter = CiobJobsAdapter(crawl_delay=5)
-        assert adapter.crawl_delay == 5
+    def test_default_per_page(self):
+        adapter = CiobJobsAdapter()
+        assert adapter.per_page == 100
 
-    def test_custom_feed_url(self):
-        adapter = CiobJobsAdapter(feed_url="https://example.com/custom-feed/")
-        assert adapter.feed_url == "https://example.com/custom-feed/"
+    def test_default_max_pages(self):
+        adapter = CiobJobsAdapter()
+        assert adapter.max_pages == 5
 
     def test_keywords_list_accepted(self):
         adapter = CiobJobsAdapter(keywords_list=["project manager", "risk manager"])
         assert adapter.keywords_list == ["project manager", "risk manager"]
 
+    def test_none_keywords_list_becomes_empty(self):
+        adapter = CiobJobsAdapter(keywords_list=None)
+        assert adapter.keywords_list == []
+
+    def test_custom_api_base_trailing_slash_stripped(self):
+        adapter = CiobJobsAdapter(api_base="https://example.com/")
+        assert adapter.api_base == "https://example.com"
+
     def test_extra_kwargs_ignored(self):
-        # Orchestrator may pass extra keys from config — must not raise
         adapter = CiobJobsAdapter(unknown_param="ignored")
         assert adapter.name == _SOURCE_NAME
-
-
-# ===========================================================================
-# CiobJobsAdapter._parse_feed  (direct calls — no HTTP)
-# ===========================================================================
-
-
-class TestCiobJobsAdapterParseFeed:
-    def test_fixture_parses_three_items(self):
-        xml = _FEED_FIXTURE.read_text(encoding="utf-8")
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(xml)
-        assert len(listings) == 3
-
-    def test_fixture_first_item_title(self):
-        xml = _FEED_FIXTURE.read_text(encoding="utf-8")
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(xml)
-        titles = [l.title for l in listings]
-        assert any("Senior Project Manager" in t for t in titles)
-
-    def test_fixture_all_have_source_name(self):
-        xml = _FEED_FIXTURE.read_text(encoding="utf-8")
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(xml)
-        assert all(l.source == _SOURCE_NAME for l in listings)
-
-    def test_since_filter_excludes_old_items(self):
-        feed = _feed_xml(
-            _item_xml(
-                title="Old Job",
-                link="https://ciobjobs.com/job/old-job/",
-                pub_date="Mon, 01 Jun 2026 09:00:00 +0000",
-            ),
-            _item_xml(
-                title="New Job",
-                link="https://ciobjobs.com/job/new-job/",
-                pub_date="Thu, 19 Jun 2026 08:00:00 +0000",
-            ),
-        )
-        since = datetime(2026, 6, 10, tzinfo=timezone.utc)
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(feed, since=since)
-        assert len(listings) == 1
-        assert listings[0].title == "New Job"
-
-    def test_since_filter_includes_items_on_boundary(self):
-        feed = _feed_xml(
-            _item_xml(
-                title="Exact Match",
-                link="https://ciobjobs.com/job/exact-match/",
-                pub_date="Wed, 10 Jun 2026 00:00:00 +0000",
-            ),
-        )
-        since = datetime(2026, 6, 10, tzinfo=timezone.utc)
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(feed, since=since)
-        assert len(listings) == 1
-
-    def test_no_posted_at_always_included_despite_since(self):
-        feed = _feed_xml(
-            _item_xml(
-                title="No Date Job",
-                link="https://ciobjobs.com/job/no-date/",
-                pub_date="",
-            ),
-        )
-        since = datetime(2026, 6, 10, tzinfo=timezone.utc)
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(feed, since=since)
-        assert len(listings) == 1
-
-    def test_deduplication_by_slug(self):
-        dup_item = _item_xml(
-            title="Duplicate Role",
-            link="https://ciobjobs.com/job/duplicate-role/",
-        )
-        feed = _feed_xml(dup_item, dup_item)
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(feed)
-        assert len(listings) == 1
-
-    def test_malformed_xml_returns_empty_list(self):
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed("<rss><channel><item>UNCLOSED")
-        assert listings == []
-
-    def test_missing_channel_returns_empty_list(self):
-        xml = '<?xml version="1.0"?><rss version="2.0"></rss>'
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(xml)
-        assert listings == []
-
-    def test_empty_channel_returns_empty_list(self):
-        xml = (
-            '<?xml version="1.0"?>'
-            '<rss version="2.0"><channel></channel></rss>'
-        )
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(xml)
-        assert listings == []
-
-    def test_items_missing_title_are_skipped(self):
-        feed = _feed_xml(
-            _item_xml(title=""),
-            _item_xml(title="Valid Job", link="https://ciobjobs.com/job/valid-job/"),
-        )
-        adapter = CiobJobsAdapter()
-        listings = adapter._parse_feed(feed)
-        assert len(listings) == 1
-        assert listings[0].title == "Valid Job"
 
 
 # ===========================================================================
@@ -510,60 +380,143 @@ class TestCiobJobsAdapterParseFeed:
 
 
 class TestCiobJobsAdapterFetch:
-    @patch("httpx.AsyncClient")
-    def test_fetch_happy_path_returns_listings(self, mock_client_cls):
-        xml = _FEED_FIXTURE.read_text(encoding="utf-8")
-        mock_client_cls.return_value = _mock_http_client(xml)
+    """fetch() tests with mocked httpx.AsyncClient."""
 
-        adapter = CiobJobsAdapter()
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_happy_path_single_keyword_single_page(self, mock_client_cls, mock_sleep):
+        items = [_make_item(wp_id=1), _make_item(wp_id=2, title="Senior PM")]
+        resp = _make_mock_response(items, total=2, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
-        assert len(listings) == 3
+        assert len(listings) == 2
+        ids = {l.source_listing_id for l in listings}
+        assert ids == {"1", "2"}
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_source_name_is_ciob_jobs(self, mock_client_cls):
-        xml = _FEED_FIXTURE.read_text(encoding="utf-8")
-        mock_client_cls.return_value = _mock_http_client(xml)
+    def test_source_name_is_ciob_jobs(self, mock_client_cls, mock_sleep):
+        resp = _make_mock_response([_make_item(wp_id=10)], total=1, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
 
-        adapter = CiobJobsAdapter()
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
         assert all(l.source == _SOURCE_NAME for l in listings)
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_since_filter_applied(self, mock_client_cls):
-        feed = _feed_xml(
-            _item_xml(
-                title="Recent Job",
-                link="https://ciobjobs.com/job/recent-job/",
-                pub_date="Thu, 19 Jun 2026 08:00:00 +0000",
-            ),
-            _item_xml(
-                title="Old Job",
-                link="https://ciobjobs.com/job/old-job/",
-                pub_date="Mon, 01 Jun 2026 09:00:00 +0000",
-            ),
-        )
-        mock_client_cls.return_value = _mock_http_client(feed)
+    def test_two_page_pagination_single_keyword(self, mock_client_cls, mock_sleep):
+        page1 = [_make_item(wp_id=i) for i in range(1, 4)]
+        page2 = [_make_item(wp_id=i) for i in range(4, 6)]
+        resp1 = _make_mock_response(page1, total=5, total_pages=2)
+        resp2 = _make_mock_response(page2, total=5, total_pages=2)
+        mock_client_cls.return_value = _mock_client([resp1, resp2])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"], max_pages=5)
+        listings = asyncio.run(adapter.fetch())
+
+        assert len(listings) == 5
+        assert {l.source_listing_id for l in listings} == {"1", "2", "3", "4", "5"}
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_max_pages_cap_stops_pagination(self, mock_client_cls, mock_sleep):
+        # API reports 10 pages but max_pages=2 — only 2 GET calls expected
+        call_count = [0]
+
+        async def _get(url, **kwargs):
+            call_count[0] += 1
+            items = [_make_item(wp_id=call_count[0] * 100)]
+            return _make_mock_response(items, total=1000, total_pages=10)
+
+        mock = AsyncMock()
+        mock.__aenter__ = AsyncMock(return_value=mock)
+        mock.__aexit__ = AsyncMock(return_value=False)
+        mock.get = AsyncMock(side_effect=_get)
+        mock_client_cls.return_value = mock
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"], max_pages=2)
+        asyncio.run(adapter.fetch())
+
+        assert call_count[0] == 2
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_dedup_across_two_keywords(self, mock_client_cls, mock_sleep):
+        shared = _make_item(wp_id=999, title="Shared Role")
+        unique_kw1 = _make_item(wp_id=1, title="Only KW1")
+        unique_kw2 = _make_item(wp_id=2, title="Only KW2")
+        resp_kw1 = _make_mock_response([shared, unique_kw1], total=2, total_pages=1)
+        resp_kw2 = _make_mock_response([shared, unique_kw2], total=2, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp_kw1, resp_kw2])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager", "risk manager"])
+        listings = asyncio.run(adapter.fetch())
+
+        assert len(listings) == 3
+        ids = {l.source_listing_id for l in listings}
+        assert ids == {"999", "1", "2"}
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_dedup_across_pages_same_keyword(self, mock_client_cls, mock_sleep):
+        shared = _make_item(wp_id=999, title="Duplicate Role")
+        resp1 = _make_mock_response([shared], total=1, total_pages=2)
+        resp2 = _make_mock_response([shared], total=1, total_pages=2)
+        mock_client_cls.return_value = _mock_client([resp1, resp2])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
+        listings = asyncio.run(adapter.fetch())
+
+        assert len(listings) == 1
+        assert listings[0].source_listing_id == "999"
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_since_filter_excludes_old_listings(self, mock_client_cls, mock_sleep):
+        old = _make_item(wp_id=1, date="2026-05-01T00:00:00")
+        new = _make_item(wp_id=2, date="2026-06-15T00:00:00")
+        resp = _make_mock_response([old, new], total=2, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
 
         since = datetime(2026, 6, 10, tzinfo=timezone.utc)
-        adapter = CiobJobsAdapter()
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch(since=since))
 
         assert len(listings) == 1
-        assert listings[0].title == "Recent Job"
+        assert listings[0].source_listing_id == "2"
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_http_error_returns_empty_list(self, mock_client_cls):
-        mock_client_cls.return_value = _mock_http_client("", status_code=503)
+    def test_since_filter_keeps_no_date_entries(self, mock_client_cls, mock_sleep):
+        item = _make_item(wp_id=5, date="")
+        resp = _make_mock_response([item], total=1, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
 
-        adapter = CiobJobsAdapter()
+        since = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
+        listings = asyncio.run(adapter.fetch(since=since))
+
+        assert len(listings) == 1
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_http_error_returns_empty_list(self, mock_client_cls, mock_sleep):
+        resp = _make_mock_response([], status_code=503, total=0, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
         assert listings == []
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_request_error_returns_empty_list(self, mock_client_cls):
+    def test_request_error_returns_empty_list(self, mock_client_cls, mock_sleep):
         import httpx as _httpx
 
         async def _get_raises(url, **kwargs):
@@ -575,29 +528,111 @@ class TestCiobJobsAdapterFetch:
         mock.get = AsyncMock(side_effect=_get_raises)
         mock_client_cls.return_value = mock
 
-        adapter = CiobJobsAdapter()
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
         assert listings == []
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_malformed_xml_returns_empty_list(self, mock_client_cls):
-        mock_client_cls.return_value = _mock_http_client("<rss><BROKEN")
+    def test_json_parse_failure_returns_empty_list(self, mock_client_cls, mock_sleep):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"x-wp-totalpages": "1"}
+        resp.json.side_effect = ValueError("not json")
+        mock_client_cls.return_value = _mock_client([resp])
 
-        adapter = CiobJobsAdapter()
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
         assert listings == []
 
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient")
-    def test_fetch_empty_feed_returns_empty_list(self, mock_client_cls):
-        empty = (
-            '<?xml version="1.0"?>'
-            '<rss version="2.0"><channel></channel></rss>'
-        )
-        mock_client_cls.return_value = _mock_http_client(empty)
+    def test_non_list_response_body_returns_empty_list(self, mock_client_cls, mock_sleep):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"x-wp-totalpages": "1"}
+        resp.json.return_value = {"error": "unexpected dict"}
+        mock_client_cls.return_value = _mock_client([resp])
 
-        adapter = CiobJobsAdapter()
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
         listings = asyncio.run(adapter.fetch())
 
         assert listings == []
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_empty_results_returns_empty_list(self, mock_client_cls, mock_sleep):
+        resp = _make_mock_response([], total=0, total_pages=1)
+        mock_client_cls.return_value = _mock_client([resp])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
+        listings = asyncio.run(adapter.fetch())
+
+        assert listings == []
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_missing_totalpages_header_defaults_to_one_page(self, mock_client_cls, mock_sleep):
+        items = [_make_item(wp_id=7)]
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}  # no pagination headers
+        resp.json.return_value = items
+        mock_client_cls.return_value = _mock_client([resp])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
+        listings = asyncio.run(adapter.fetch())
+
+        assert len(listings) == 1
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_multiple_keywords_both_queried(self, mock_client_cls, mock_sleep):
+        get_calls = []
+
+        async def _get(url, **kwargs):
+            get_calls.append(url)
+            wp_id = len(get_calls) * 100
+            items = [_make_item(wp_id=wp_id)]
+            return _make_mock_response(items, total=1, total_pages=1)
+
+        mock = AsyncMock()
+        mock.__aenter__ = AsyncMock(return_value=mock)
+        mock.__aexit__ = AsyncMock(return_value=False)
+        mock.get = AsyncMock(side_effect=_get)
+        mock_client_cls.return_value = mock
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager", "risk manager"])
+        asyncio.run(adapter.fetch())
+
+        assert len(get_calls) == 2
+        assert any("project+manager" in url for url in get_calls)
+        assert any("risk+manager" in url for url in get_calls)
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_no_keywords_returns_empty_list(self, mock_client_cls, mock_sleep):
+        mock_client_cls.return_value = _mock_client([])
+
+        adapter = CiobJobsAdapter(keywords_list=[])
+        listings = asyncio.run(adapter.fetch())
+
+        assert listings == []
+
+    @patch("mechpm.adapters.ciob_jobs.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient")
+    def test_page_delay_called_between_pages(self, mock_client_cls, _mock_sleep):
+        """asyncio.sleep is called once between page 1 and page 2."""
+        sleep_mock = AsyncMock(return_value=None)
+        page1 = _make_mock_response([_make_item(wp_id=1)], total=2, total_pages=2)
+        page2 = _make_mock_response([_make_item(wp_id=2)], total=2, total_pages=2)
+        mock_client_cls.return_value = _mock_client([page1, page2])
+
+        adapter = CiobJobsAdapter(keywords_list=["project manager"])
+        with patch("mechpm.adapters.ciob_jobs.asyncio.sleep", sleep_mock):
+            asyncio.run(adapter.fetch())
+
+        sleep_mock.assert_awaited_once()
+

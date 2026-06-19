@@ -211,7 +211,7 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
             extra_ciob: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
             adapters.append(
                 cls(  # type: ignore[call-arg]
-                    feed_url=extra_ciob.get("feed_url", "https://ciobjobs.com/feed/"),
+                    api_base=extra_ciob.get("api_base", "https://ciobjobs.com"),
                     crawl_delay=cfg.crawl_delay,
                     keywords_list=cfg.keywords_list,
                 )
