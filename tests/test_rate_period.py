@@ -135,12 +135,12 @@ class TestBanding:
 # ---------------------------------------------------------------------------
 
 class TestPremium:
-    def test_90_per_hour_outside_is_premium(self) -> None:
+    def test_90_per_hour_is_premium(self) -> None:
         """£90/hr × 8 = £720/day ≥ £700 → premium."""
         listing = _make_listing(day_rate_min=90, rate_period="hour", ir35_status="outside")
         assert is_premium(listing) is True
 
-    def test_85_per_hour_outside_is_not_premium(self) -> None:
+    def test_85_per_hour_is_not_premium(self) -> None:
         """£85/hr × 8 = £680/day < £700 → not premium."""
         listing = _make_listing(day_rate_min=85, rate_period="hour", ir35_status="outside")
         assert is_premium(listing) is False
@@ -149,11 +149,17 @@ class TestPremium:
         listing = _make_listing(day_rate_min=700, rate_period="day", ir35_status="outside")
         assert is_premium(listing) is True
 
-    def test_700_per_day_inside_is_not_premium(self) -> None:
+    def test_700_per_day_inside_is_premium(self) -> None:
+        """IR35 status no longer affects premium flag."""
         listing = _make_listing(day_rate_min=700, rate_period="day", ir35_status="inside")
-        assert is_premium(listing) is False
+        assert is_premium(listing) is True
 
-    def test_87_50_per_hour_outside_is_premium_boundary(self) -> None:
+    def test_700_per_day_no_ir35_is_premium(self) -> None:
+        """Listings without IR35 info are still flagged as premium."""
+        listing = _make_listing(day_rate_min=700, rate_period="day", ir35_status=None)
+        assert is_premium(listing) is True
+
+    def test_87_50_per_hour_is_premium_boundary(self) -> None:
         """£87.50/hr × 8 = £700/day exactly → premium."""
         listing = _make_listing(day_rate_min=87.5, rate_period="hour", ir35_status="outside")
         assert is_premium(listing) is True

@@ -220,12 +220,12 @@ def is_urgent(listing: NormalizedListing, today: date) -> bool:
 
 
 def is_premium(listing: NormalizedListing) -> bool:
-    """Return True when effective day rate ≥ £700 AND IR35 is outside."""
+    """Return True when effective day rate ≥ £700 regardless of IR35 status."""
     from mechpm.reporter.domain import effective_day_rate  # local to avoid circular dep
     rate = effective_day_rate(listing)
     if rate is None:
         return False
-    return rate >= 700 and listing.ir35_status == "outside"
+    return rate >= 700
 
 
 def get_sanity_reasons(listing: NormalizedListing, today: date | None = None) -> list[str]:

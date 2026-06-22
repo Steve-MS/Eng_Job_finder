@@ -408,7 +408,7 @@ def _render_header(
         "",
         f"- **New this week:** {run_metadata.total_new} roles",
         f"- **Urgent starts (≤14 days):** {run_metadata.total_urgent} roles ⚡",
-        f"- **Premium rate roles (≥£700 outside IR35):** {premium_count} roles 💰",
+        f"- **Premium rate roles (≥£700/day):** {premium_count} roles 💰",
         f"- **Under review (sanity flags):** {run_metadata.total_sanity_flagged}"
         f" role{'s' if run_metadata.total_sanity_flagged != 1 else ''} ⚠️",
         f"- **Pipeline:** {run_metadata.total_after_filter} passed filters"

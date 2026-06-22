@@ -43,6 +43,7 @@ def _get_registry() -> dict:
         from mechpm.adapters.advance_trs import AdvanceTrsAdapter
         from mechpm.adapters.drupal_jobboard import DrupalJobBoardAdapter
         from mechpm.adapters.atkinsrealis import AtkinsRealisAdapter
+        from mechpm.adapters.arcadis import ArcadisAdapter
         from mechpm.adapters.ciob_jobs import CiobJobsAdapter
         from mechpm.adapters.railrecruiter import RailRecruiterAdapter
         from mechpm.adapters.construction_jobboard import ConstructionJobBoardAdapter

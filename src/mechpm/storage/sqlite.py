@@ -188,6 +188,8 @@ class Repo:
                        is_new_listing, sanity_flags_json)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
                     ON CONFLICT(listing_id) DO UPDATE SET
+                      source_url   = excluded.source_url,
+                      source_urls_json = excluded.source_urls_json,
                       last_seen_at = excluded.last_seen_at,
                       times_seen   = times_seen + 1
                     """,

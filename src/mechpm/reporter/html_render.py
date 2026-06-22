@@ -140,7 +140,13 @@ body {
     border-radius: 8px;
     padding: 16px 18px;
     text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    user-select: none;
 }
+.summary-tile:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.summary-tile:active { transform: translateY(0); }
+.summary-tile.tile-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); background: #f0f7ff; }
 .summary-tile .count { font-size: 28px; font-weight: 700; color: var(--accent); }
 .summary-tile .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
@@ -610,6 +616,24 @@ def _render_combined_filter_bar(listings: list[NormalizedListing]) -> str:
         for jid, cnt in jt_sorted
     )
 
+    # IR35 status options — ordered: outside, inside, umbrella, not-stated
+    _IR35_ORDER = ["outside", "inside", "umbrella", "not-stated"]
+    _IR35_DISPLAY = {
+        "outside": "Outside IR35",
+        "inside": "Inside IR35",
+        "umbrella": "Umbrella",
+        "not-stated": "Not Stated",
+    }
+    ir35_counts: Counter[str] = Counter((l.ir35_status or "not-stated") for l in listings)
+    ir35_sorted = [(iid, ir35_counts[iid]) for iid in _IR35_ORDER if iid in ir35_counts]
+    for iid, cnt in sorted(ir35_counts.items()):
+        if iid not in {i for i, _ in ir35_sorted}:
+            ir35_sorted.append((iid, cnt))
+    ir35_options = "".join(
+        f'      <option value="{_h(iid)}">{_h(_IR35_DISPLAY.get(iid, iid.replace("-", " ").title()))} ({cnt})</option>\n'
+        for iid, cnt in ir35_sorted
+    )
+
     counter = (
         f'<span id="filter-count" class="filter-count-label">Showing all {total} listings</span>'
     )
@@ -637,6 +661,13 @@ def _render_combined_filter_bar(listings: list[NormalizedListing]) -> str:
         f"{jt_options}"
         f'    </select>\n'
         f'  </div>\n'
+        f'  <div class="filter-group">\n'
+        f'    <label class="filter-bar-label" for="filter-ir35">IR35:</label>\n'
+        f'    <select id="filter-ir35" class="filter-select">\n'
+        f'      <option value="">All IR35</option>\n'
+        f"{ir35_options}"
+        f'    </select>\n'
+        f'  </div>\n'
         f'  {counter}\n'
         f'</div>'
     )
@@ -653,26 +684,74 @@ _FILTER_JS = """<script>
   var selSrc=document.getElementById('filter-source');
   var selRgn=document.getElementById('filter-region');
   var selJt=document.getElementById('filter-jobtype');
+  var selIr35=document.getElementById('filter-ir35');
   var allCards=document.querySelectorAll('article.role-card[data-source]');
   var total=allCards.length;
+  var tiles=document.querySelectorAll('.summary-tile[data-filter]');
+  var activeTileFilter='';
+
   function applyFilter(){
     var src=selSrc?selSrc.value:'';
     var rgn=selRgn?selRgn.value:'';
     var jt=selJt?selJt.value:'';
+    var ir=selIr35?selIr35.value:'';
+    var tf=activeTileFilter;
     var vis=0;
     allCards.forEach(function(c){
       var show=(!src||c.dataset.source===src)
         &&(!rgn||c.dataset.region===rgn)
-        &&(!jt||c.dataset.jobtype===jt);
+        &&(!jt||c.dataset.jobtype===jt)
+        &&(!ir||c.dataset.ir35===ir);
+      if(show&&tf&&tf!=='all'){
+        show=c.dataset[tf]==='1';
+      }
       c.style.display=show?'':'none';
       if(show)vis++;
     });
+    // Also show/hide empty section content
+    document.querySelectorAll('section').forEach(function(sec){
+      var cards=sec.querySelectorAll('article.role-card');
+      if(cards.length===0)return;
+      var anyVis=false;
+      cards.forEach(function(c){if(c.style.display!=='none')anyVis=true;});
+      var empties=sec.querySelectorAll('.empty-filter-msg');
+      empties.forEach(function(e){e.remove();});
+      if(!anyVis&&(tf||src||rgn||jt||ir)){
+        var msg=document.createElement('p');
+        msg.className='empty-section empty-filter-msg';
+        msg.textContent='No matching listings in this section.';
+        sec.appendChild(msg);
+      }
+    });
     var lbl=document.getElementById('filter-count');
-    if(lbl)lbl.textContent=vis===total?'Showing all '+total+' listings':'Showing '+vis+' of '+total+' listings';
+    if(lbl){
+      if(!tf&&!src&&!rgn&&!jt&&!ir) lbl.textContent='Showing all '+total+' listings';
+      else lbl.textContent='Showing '+vis+' of '+total+' listings';
+    }
   }
+
+  tiles.forEach(function(tile){
+    tile.addEventListener('click',function(){
+      var f=tile.dataset.filter;
+      if(f===activeTileFilter||f==='all'){
+        activeTileFilter='';
+        tiles.forEach(function(t){t.classList.remove('tile-active');});
+      } else {
+        activeTileFilter=f;
+        tiles.forEach(function(t){t.classList.remove('tile-active');});
+        tile.classList.add('tile-active');
+      }
+      applyFilter();
+    });
+    tile.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();tile.click();}
+    });
+  });
+
   if(selSrc)selSrc.addEventListener('change',applyFilter);
   if(selRgn)selRgn.addEventListener('change',applyFilter);
   if(selJt)selJt.addEventListener('change',applyFilter);
+  if(selIr35)selIr35.addEventListener('change',applyFilter);
   applyFilter();
 })();
 </script>"""
@@ -772,7 +851,16 @@ def _role_card(
     start = _h(_start_str_safe(listing.start_date, today))
     flags = _flag_pills(listing, today)
 
-    lines.append(f'<article class="role-card {card_class}" data-source="{_h(_source_id(listing))}" data-region="{_h(_region_id(listing))}" data-jobtype="{_h(_jobtype_id(listing))}">')
+    lines.append(f'<article class="role-card {card_class}"'
+                 f' data-source="{_h(_source_id(listing))}"'
+                 f' data-region="{_h(_region_id(listing))}"'
+                 f' data-jobtype="{_h(_jobtype_id(listing))}"'
+                 f' data-ir35="{_h(listing.ir35_status or "not-stated")}"'
+                 f' data-new="{"1" if listing.is_new_listing else "0"}"'
+                 f' data-urgent="{"1" if is_urgent(listing, today) else "0"}"'
+                 f' data-premium="{"1" if is_premium(listing) else "0"}"'
+                 f' data-flagged="{"1" if is_sanity_flagged(listing, today) else "0"}"'
+                 f'>')
 
     if flags:
         lines.append(flags)
@@ -846,17 +934,19 @@ def _render_html_header(
   </div>
 </header>"""
 
-    # Summary tiles.
-    tiles = [
-        (str(run_metadata.total_new), "New This Week"),
-        (str(run_metadata.total_urgent), "Urgent Starts ≤14 days"),
-        (str(premium_count), "Premium Rate (≥£700 outside)"),
-        (str(run_metadata.total_sanity_flagged), "Under Review"),
-        (str(run_metadata.total_after_dedup), "Total in Pipeline"),
+    # Summary tiles — clickable filters.
+    tile_defs = [
+        (str(run_metadata.total_new), "New This Week", "new"),
+        (str(run_metadata.total_urgent), "Urgent Starts ≤14 days", "urgent"),
+        (str(premium_count), "Premium Rate (≥£700/day)", "premium"),
+        (str(run_metadata.total_sanity_flagged), "Under Review", "flagged"),
+        (str(run_metadata.total_after_dedup), "Total in Pipeline", "all"),
     ]
     tile_html = "\n".join(
-        f'<div class="summary-tile"><div class="count">{_h(c)}</div><div class="label">{_h(l)}</div></div>'
-        for c, l in tiles
+        f'<div class="summary-tile" data-filter="{filt}" tabindex="0" role="button"'
+        f' aria-label="Filter: {_h(l)}">'
+        f'<div class="count">{_h(c)}</div><div class="label">{_h(l)}</div></div>'
+        for c, l, filt in tile_defs
     )
     summary = f'<div class="summary-grid">\n{tile_html}\n</div>'
 
@@ -898,7 +988,7 @@ def _render_html_premium_section(premium_listings: list[NormalizedListing], toda
     return f"""<section id="premium-rate">
   <header>
     <h2>💰 Premium Rate</h2>
-    <span class="section-count">{count} role{"s" if count != 1 else ""} ≥£700 outside IR35</span>
+    <span class="section-count">{count} role{"s" if count != 1 else ""} ≥£700/day</span>
   </header>
   <p class="section-note">Top-quartile day rates for UK mechanical engineering PM contracts.</p>
   {body}
