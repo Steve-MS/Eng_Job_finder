@@ -55,6 +55,7 @@ logger = logging.getLogger("mechpm.adapter.turner_townsend")
 
 _SEARCH_URL = "https://www.turnerandtownsend.com/api/careers/searchvacancies"
 _CAREERS_REFERER = "https://www.turnerandtownsend.com/join-us/current-opportunities/"
+_POSTING_URL_PREFIX = "https://jobs.smartrecruiters.com/TurnerTownsend/"
 _PAGE_SIZE = 50
 _PAGE_DELAY_SECONDS = 3
 _DETAIL_DELAY_SECONDS = 1.0
@@ -171,7 +172,7 @@ def _content_item_to_raw_listing(item: dict) -> RawListing | None:
     return RawListing(
         source=_SOURCE_NAME,
         source_listing_id=listing_id,
-        url=ref,  # replaced by postingUrl if enriched
+        url=f"{_POSTING_URL_PREFIX}{listing_id}",  # human-readable SmartRecruiters page
         title=title,
         employer=_EMPLOYER,
         agency=None,

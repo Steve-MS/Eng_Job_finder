@@ -291,9 +291,9 @@ class TestContentItemToRawListing:
         listing = _content_item_to_raw_listing(_make_item(name="Senior PM - Rail"))
         assert listing.title == "Senior PM - Rail"
 
-    def test_url_is_ref_before_enrichment(self):
+    def test_url_is_public_posting_page(self):
         listing = _content_item_to_raw_listing(_make_item(listing_id="744000999"))
-        assert listing.url == f"{_REF_BASE}744000999"
+        assert listing.url == "https://jobs.smartrecruiters.com/TurnerTownsend/744000999"
 
     def test_location_raw_populated(self):
         listing = _content_item_to_raw_listing(_make_item(city="Sheffield", country="United Kingdom"))
