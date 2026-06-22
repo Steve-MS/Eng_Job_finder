@@ -48,6 +48,9 @@ def _get_registry() -> dict:
         from mechpm.adapters.construction_jobboard import ConstructionJobBoardAdapter
         from mechpm.adapters.kier import KierAdapter
         from mechpm.adapters.madgex import MadgexAdapter
+        from mechpm.adapters.volcanic import VolcanicAdapter
+        from mechpm.adapters.morson import MorsonAdapter
+        from mechpm.adapters.laingorourke import LaingORourkeAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -72,6 +75,10 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["kier"] = KierAdapter
         _ADAPTER_REGISTRY["rics_recruit"] = MadgexAdapter
         _ADAPTER_REGISTRY["ice_recruit"] = MadgexAdapter
+        _ADAPTER_REGISTRY["navartis"] = VolcanicAdapter
+        _ADAPTER_REGISTRY["carrington_west"] = VolcanicAdapter
+        _ADAPTER_REGISTRY["morson"] = MorsonAdapter
+        _ADAPTER_REGISTRY["laingorourke"] = LaingORourkeAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -269,6 +276,45 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     crawl_delay=cfg.crawl_delay,
                     keywords_list=cfg.keywords_list,
                     max_pages_per_query=extra_kier.get("max_pages_per_query", 5),
+                )
+            )
+        elif name == "laingorourke":
+            extra_lor: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    base_url=extra_lor.get("base_url", "https://careers.laingorourke.com"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_jobs=extra_lor.get("max_jobs", 100),
+                )
+            )
+        elif name == "morson":
+            extra_morson: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    api_base=extra_morson.get("api_base", "https://www.morson.com"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages=extra_morson.get("max_pages", 10),
+                )
+            )
+        elif name in ("navartis", "carrington_west"):
+            extra_vol: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            base_url = extra_vol.get("base_url", "")
+            source_name = extra_vol.get("source_name", name)
+            if not base_url:
+                log.warning(
+                    "Source '%s' missing 'base_url' in config.toml — skipping.",
+                    name,
+                )
+                continue
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    base_url=base_url,
+                    source_name=source_name,
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_jobs=extra_vol.get("max_jobs", 200),
                 )
             )
         elif name in ("rics_recruit", "ice_recruit"):

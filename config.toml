@@ -415,6 +415,46 @@ keywords_list = [
     "project planner",
 ]
 
+# Volcanic platform — Navartis (rail/civil engineering recruiter)
+# and Carrington West (infrastructure/highways/rail recruiter).
+# Both sites run Volcanic and expose /job/sitemap.xml.
+# Strategy: fetch sitemap → sort by lastmod → fetch top max_jobs HTML pages.
+# No auth required; no bot-management blocking on job pages.
+# Live probe: 2026-06-22.
+[sources.navartis]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.navartisglobal.com"
+source_name = "navartis"
+max_jobs = 200
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+[sources.carrington_west]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.carringtonwest.com"
+source_name = "carrington_west"
+max_jobs = 200
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
 # Kier Careers — HTML scrape of jobs.kier.co.uk.
 # GET /jobs/search?page=N&query={keyword}
 # 15 cards per page; employer fixed as "Kier Group".
@@ -424,6 +464,49 @@ keywords_list = [
 enabled = true
 crawl_delay = 3
 base_url = "https://jobs.kier.co.uk"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+# Laing O'Rourke Careers — JSON-LD scrape via sitemap.
+# Strategy: GET /sitemap.xml → 254 /jobs/ URLs with lastmod dates.
+# Sort newest-first, cap at max_jobs, fetch each page's JobPosting JSON-LD.
+# robots.txt: Crawl-delay: 5; disallows /api/ and /me/.
+# AWS WAF present but does not block normal GET requests (2026-06-22).
+[sources.laingorourke]
+enabled = true
+crawl_delay = 5
+base_url = "https://careers.laingorourke.com"
+max_jobs = 100
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+# Morson Talent — Drupal JSON:API at morson.com.
+# A major UK engineering recruitment agency.
+# GET /jsonapi/lm/job?sort=-created&page[limit]=50
+#   &filter[title][operator]=CONTAINS&filter[title][value]={keyword}
+# Server-side title filtering confirmed working (2026-06-22).
+# Pagination via links.next (offset-based); no meta.total.
+# No bot protection; no authentication required (2026-06-22).
+[sources.morson]
+enabled = true
+crawl_delay = 3
+api_base = "https://www.morson.com"
 keywords_list = [
     "project manager",
     "project director",
