@@ -487,29 +487,55 @@ class LaingORourkeAdapter(SourceAdapter):
         client: httpx.AsyncClient,
         sitemap_url: str,
     ) -> list[tuple[str, date | None]]:
-        """Fetch and parse ``/sitemap.xml``.
+        """Fetch and parse ``/sitemap.xml`` with retry for transient failures.
 
         Returns a sorted list of ``(url, lastmod)`` tuples for ``/jobs/``
-        paths.  Returns ``[]`` on any network or parse error.
+        paths.  Returns ``[]`` on any unrecoverable network or parse error.
         """
-        try:
-            response = await client.get(sitemap_url)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.warning(
-                "laingorourke: HTTP %s fetching sitemap (%s).",
-                exc.response.status_code,
-                sitemap_url,
-            )
-            return []
-        except Exception:
-            logger.exception(
-                "laingorourke: request failed fetching sitemap (%s).",
-                sitemap_url,
-            )
-            return []
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                response = await client.get(sitemap_url)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "laingorourke: HTTP %s fetching sitemap (%s), attempt %d/%d.",
+                    exc.response.status_code,
+                    sitemap_url,
+                    attempt + 1,
+                    max_attempts,
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2 ** (attempt + 1))
+                    continue
+                return []
+            except Exception:
+                logger.exception(
+                    "laingorourke: request failed fetching sitemap (%s), attempt %d/%d.",
+                    sitemap_url,
+                    attempt + 1,
+                    max_attempts,
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2 ** (attempt + 1))
+                    continue
+                return []
 
-        return _parse_sitemap(response.text, self.base_url)
+            result = _parse_sitemap(response.text, self.base_url)
+            if result:
+                return result
+
+            # Parse succeeded but returned empty — may be a WAF challenge page
+            logger.warning(
+                "laingorourke: sitemap parsed but yielded 0 job URLs "
+                "(attempt %d/%d) — retrying.",
+                attempt + 1,
+                max_attempts,
+            )
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(2 ** (attempt + 1))
+
+        return []
 
     async def _fetch_job(
         self,

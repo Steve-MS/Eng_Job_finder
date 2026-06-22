@@ -79,6 +79,7 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["carrington_west"] = VolcanicAdapter
         _ADAPTER_REGISTRY["morson"] = MorsonAdapter
         _ADAPTER_REGISTRY["laingorourke"] = LaingORourkeAdapter
+        _ADAPTER_REGISTRY["arcadis"] = ArcadisAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -256,6 +257,18 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     crawl_delay=cfg.crawl_delay,
                     keywords_list=cfg.keywords_list,
                     api_base=extra_ar.get("api_base", "https://atkinsats-prod-api.connectid.cloud"),
+                )
+            )
+        elif name == "arcadis":
+            extra_arc: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    api_base=extra_arc.get("api_base", "https://jobs.arcadis.com/api/pcsx"),
+                    domain=extra_arc.get("domain", "arcadis.com"),
+                    location=extra_arc.get("location", "United Kingdom"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_arc.get("max_pages_per_query", 10),
                 )
             )
         elif name == "construction_jobboard":

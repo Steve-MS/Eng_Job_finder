@@ -346,6 +346,28 @@ keywords_list = [
     "project planner",
 ]
 
+# Arcadis — global engineering consultancy (Eightfold AI platform).
+# Public JSON API at /api/pcsx/search. No auth required.
+# robots.txt allows /api/pcsx. UK location filter reduces global → UK results.
+# Discovery probe: 2026-06-22.
+[sources.arcadis]
+enabled = true
+crawl_delay = 2
+api_base = "https://jobs.arcadis.com/api/pcsx"
+domain = "arcadis.com"
+location = "United Kingdom"
+max_pages_per_query = 10
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
 # RailRecruiter — UK rail-sector job board (www.railrecruiter.co.uk).
 # ASP.NET WebForms site with browser-fingerprint challenge (/_xhrc.ashx).
 # Session setup: GET /jobs/ → POST /_xhrc.ashx → GET clean search URL.

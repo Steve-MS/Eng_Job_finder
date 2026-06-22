@@ -411,25 +411,53 @@ class KierAdapter(SourceAdapter):
     ) -> tuple[list[RawListing], bool]:
         """Fetch one search-results page and return (listings, is_last_page).
 
-        Returns ([], False) on any error — never raises.
+        Retries up to 3 times on transient failures (202 Accepted, network
+        errors).  Returns ([], False) on any unrecoverable error.
         """
-        try:
-            response = await client.get(url)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.warning(
-                "kier: HTTP %s on page %d (%s).",
-                exc.response.status_code,
-                page_num,
-                url,
-            )
-            return [], False
-        except Exception:
-            logger.exception(
-                "kier: request failed on page %d (%s).",
-                page_num,
-                url,
-            )
-            return [], False
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                response = await client.get(url)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "kier: HTTP %s on page %d (%s), attempt %d/%d.",
+                    exc.response.status_code,
+                    page_num,
+                    url,
+                    attempt + 1,
+                    max_attempts,
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2 ** (attempt + 1))
+                    continue
+                return [], False
+            except Exception:
+                logger.exception(
+                    "kier: request failed on page %d (%s), attempt %d/%d.",
+                    page_num,
+                    url,
+                    attempt + 1,
+                    max_attempts,
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2 ** (attempt + 1))
+                    continue
+                return [], False
 
-        return _parse_html(response.text, self.base_url, url)
+            # 202 Accepted means the server is still processing — retry
+            if response.status_code == 202:
+                logger.warning(
+                    "kier: HTTP 202 Accepted on page %d (attempt %d/%d) — retrying.",
+                    page_num,
+                    attempt + 1,
+                    max_attempts,
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2 ** (attempt + 1))
+                    continue
+                return [], False
+
+            return _parse_html(response.text, self.base_url, url)
+
+        return [], False
