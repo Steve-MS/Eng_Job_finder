@@ -45,6 +45,9 @@ def _get_registry() -> dict:
         from mechpm.adapters.atkinsrealis import AtkinsRealisAdapter
         from mechpm.adapters.ciob_jobs import CiobJobsAdapter
         from mechpm.adapters.railrecruiter import RailRecruiterAdapter
+        from mechpm.adapters.construction_jobboard import ConstructionJobBoardAdapter
+        from mechpm.adapters.kier import KierAdapter
+        from mechpm.adapters.madgex import MadgexAdapter
         _ADAPTER_REGISTRY["reed"] = ReedAdapter
         _ADAPTER_REGISTRY["energy_jobline"] = EnergyJoblineAdapter
         _ADAPTER_REGISTRY["railwaypeople"] = RailwayPeopleAdapter
@@ -65,6 +68,10 @@ def _get_registry() -> dict:
         _ADAPTER_REGISTRY["atkinsrealis"] = AtkinsRealisAdapter
         _ADAPTER_REGISTRY["ciob_jobs"] = CiobJobsAdapter
         _ADAPTER_REGISTRY["railrecruiter"] = RailRecruiterAdapter
+        _ADAPTER_REGISTRY["construction_jobboard"] = ConstructionJobBoardAdapter
+        _ADAPTER_REGISTRY["kier"] = KierAdapter
+        _ADAPTER_REGISTRY["rics_recruit"] = MadgexAdapter
+        _ADAPTER_REGISTRY["ice_recruit"] = MadgexAdapter
     return _ADAPTER_REGISTRY
 
 
@@ -242,6 +249,44 @@ def _build_adapters(settings: Settings, source_filter: str | None = None):
                     crawl_delay=cfg.crawl_delay,
                     keywords_list=cfg.keywords_list,
                     api_base=extra_ar.get("api_base", "https://atkinsats-prod-api.connectid.cloud"),
+                )
+            )
+        elif name == "construction_jobboard":
+            extra_cjb: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    base_url=extra_cjb.get("base_url", "https://www.constructionjobboard.co.uk"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_cjb.get("max_pages_per_query", 5),
+                )
+            )
+        elif name == "kier":
+            extra_kier: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    base_url=extra_kier.get("base_url", "https://jobs.kier.co.uk"),
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
+                    max_pages_per_query=extra_kier.get("max_pages_per_query", 5),
+                )
+            )
+        elif name in ("rics_recruit", "ice_recruit"):
+            extra_mx: dict = (cfg.model_extra or {}) if cfg.model_extra is not None else {}
+            base_url = extra_mx.get("base_url", "")
+            source_name = extra_mx.get("source_name", name)
+            if not base_url:
+                log.warning(
+                    "Source '%s' missing 'base_url' in config.toml — skipping.",
+                    name,
+                )
+                continue
+            adapters.append(
+                cls(  # type: ignore[call-arg]
+                    base_url=base_url,
+                    source_name=source_name,
+                    crawl_delay=cfg.crawl_delay,
+                    keywords_list=cfg.keywords_list,
                 )
             )
         else:

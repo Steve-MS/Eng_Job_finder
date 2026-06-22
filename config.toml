@@ -288,6 +288,44 @@ keywords_list = [
     "project planner",
 ]
 
+# Madgex platform — RICS Recruit (Royal Institution of Chartered Surveyors)
+# and ICE Recruit (Institution of Civil Engineers).
+# Both sites run on the Madgex job board platform.
+# RSS endpoint: GET {base_url}/jobsrss/?countrycode=GB[&Keywords={keyword}]
+# opensearch:totalResults in <channel>; pagination via &page=N.
+# No bot protection observed on either site (live recon 2026-06-22).
+[sources.rics_recruit]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.ricsrecruit.com"
+source_name = "rics_recruit"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+[sources.ice_recruit]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.icerecruit.com"
+source_name = "ice_recruit"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
 # AtkinsRéalis — ConnectID-powered JSON API.
 # GET /api/jobs/token returns a public Bearer JWT (1 hour TTL).
 # POST /api/jobs/jobs with keyword + location filter for UK roles.
@@ -355,4 +393,44 @@ keywords_list = [
     "project planner",
     "sustainability lead",
     "operations director",
+]
+
+# ConstructionJobBoard.co.uk — Smart Job Board HTML scrape.
+# GET /jobs/?keywords[all_words]={keyword}&page=N
+# 20 cards per page; deduplicates by job ID extracted from URL.
+# RSS feed only returns 10 most-recent items without filtering — HTML used.
+# robots.txt: permissive, no Cloudflare/bot-management (2026-06-22).
+[sources.construction_jobboard]
+enabled = true
+crawl_delay = 3
+base_url = "https://www.constructionjobboard.co.uk"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
+]
+
+# Kier Careers — HTML scrape of jobs.kier.co.uk.
+# GET /jobs/search?page=N&query={keyword}
+# 15 cards per page; employer fixed as "Kier Group".
+# robots.txt: disallows /api/ and /v1/candidate_details; search paths allowed.
+# No CAPTCHA/blocking observed (2026-06-22).
+[sources.kier]
+enabled = true
+crawl_delay = 3
+base_url = "https://jobs.kier.co.uk"
+keywords_list = [
+    "project manager",
+    "project director",
+    "programme manager",
+    "quantity surveyor",
+    "risk manager",
+    "commercial manager",
+    "operations director",
+    "project planner",
 ]
