@@ -252,11 +252,15 @@ class AdvanceTrsAdapter(SourceAdapter):
         self,
         client: httpx.AsyncClient,
         page: int,
+        *,
+        _max_retries: int = 3,
     ) -> tuple[list[dict], int]:
         """Fetch a single page from the WP Job Manager API.
 
         Returns (items, total_pages).
-        On HTTP / parse failure: logs warning, returns ([], 1).
+        Retries up to ``_max_retries`` times on transient failures (network
+        errors, non-200 responses, JSON parse errors) with exponential backoff.
+        On exhaustion: logs warning, returns ([], 1).
         """
         url = (
             f"{_BASE_URL}{_API_PATH}"
@@ -264,37 +268,53 @@ class AdvanceTrsAdapter(SourceAdapter):
             f"&per_page={self.per_page}"
             f"&page={page}"
         )
-        try:
-            response = await client.get(url)
-        except httpx.RequestError as exc:
-            logger.warning("advance_trs: request error for page %d: %s", page, exc)
-            return [], 1
+        for attempt in range(1, _max_retries + 1):
+            try:
+                response = await client.get(url)
+            except httpx.RequestError as exc:
+                logger.warning(
+                    "advance_trs: request error for page %d (attempt %d/%d): %s",
+                    page, attempt, _max_retries, exc,
+                )
+                if attempt < _max_retries:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return [], 1
 
-        if response.status_code != 200:
-            logger.warning(
-                "advance_trs: HTTP %d for page %d",
-                response.status_code,
-                page,
-            )
-            return [], 1
+            if response.status_code != 200:
+                logger.warning(
+                    "advance_trs: HTTP %d for page %d (attempt %d/%d)",
+                    response.status_code, page, attempt, _max_retries,
+                )
+                if attempt < _max_retries:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return [], 1
 
-        try:
-            total_pages = int(response.headers.get("x-wp-totalpages", "1"))
-        except (ValueError, TypeError):
-            total_pages = 1
+            try:
+                total_pages = int(response.headers.get("x-wp-totalpages", "1"))
+            except (ValueError, TypeError):
+                total_pages = 1
 
-        try:
-            items = response.json()
-        except Exception:
-            logger.warning("advance_trs: JSON parse failed for page %d", page)
-            return [], total_pages
+            try:
+                items = response.json()
+            except Exception:
+                logger.warning(
+                    "advance_trs: JSON parse failed for page %d (attempt %d/%d)",
+                    page, attempt, _max_retries,
+                )
+                if attempt < _max_retries:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return [], total_pages
 
-        if not isinstance(items, list):
-            logger.warning(
-                "advance_trs: unexpected response body type on page %d: %r",
-                page,
-                type(items),
-            )
-            return [], total_pages
+            if not isinstance(items, list):
+                logger.warning(
+                    "advance_trs: unexpected response body type on page %d: %r",
+                    page, type(items),
+                )
+                return [], total_pages
 
-        return items, total_pages
+            return items, total_pages
+
+        return [], 1  # unreachable but satisfies type checker
