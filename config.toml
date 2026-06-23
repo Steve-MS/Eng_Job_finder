@@ -27,6 +27,7 @@ keywords_list = [
     "bid writer tender writer contract",
     "business improvement manager contract",
     "project planner mechanical",
+    "compliance manager contract",
 ]
 location = ""
 
@@ -64,6 +65,7 @@ keywords_list = [
     "operations director",
     "project engineer",
     "programme manager",
+    "compliance manager",
 ]
 
 [sources.energy_jobline]
@@ -91,6 +93,7 @@ keywords_list = [
     "commercial manager contract",
     "sustainability lead energy",
     "project planner",
+    "compliance manager contract",
 ]
 
 [sources.the_engineer]
@@ -139,6 +142,7 @@ keywords_list = [
     "project-planner",
     "operations-director",
     "sustainability-lead",
+    "compliance-manager",
 ]
 
 [sources.manpower_group]
@@ -161,6 +165,7 @@ keywords_list = [
     "sustainability lead",
     "bid writer",
     "project planner",
+    "compliance manager",
 ]
 
 # Phenom ATS platform — BAM Careers + Mace Group
@@ -185,6 +190,7 @@ keywords_list = [
     "risk manager",
     "commercial manager",
     "project planner",
+    "compliance manager",
 ]
 
 [sources.mace_group]
@@ -205,6 +211,7 @@ keywords_list = [
     "risk manager",
     "commercial manager",
     "project planner",
+    "compliance manager",
 ]
 
 # Advance TRS — WordPress / WP Job Manager REST API.
@@ -236,6 +243,7 @@ keywords_list = [
     "commercial manager",
     "project director",
     "project planner",
+    "compliance manager",
 ]
 
 [sources.nce_careers]
@@ -251,6 +259,7 @@ keywords_list = [
     "programme manager",
     "quantity surveyor",
     "commercial manager",
+    "compliance manager",
 ]
 
 [sources.careers_in_construction]
@@ -266,6 +275,7 @@ keywords_list = [
     "programme manager",
     "quantity surveyor",
     "commercial manager",
+    "compliance manager",
 ]
 
 # CIOB Jobs — Chartered Institute of Building official job board.
@@ -286,6 +296,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Madgex platform — RICS Recruit (Royal Institution of Chartered Surveyors)
@@ -308,6 +319,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 [sources.ice_recruit]
@@ -324,6 +336,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # AtkinsRéalis — ConnectID-powered JSON API.
@@ -344,6 +357,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Arcadis — global engineering consultancy (Eightfold AI platform).
@@ -366,6 +380,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # RailRecruiter — UK rail-sector job board (www.railrecruiter.co.uk).
@@ -388,6 +403,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Turner & Townsend — SmartRecruiters-backed JSON API (no auth required).
@@ -415,6 +431,7 @@ keywords_list = [
     "project planner",
     "sustainability lead",
     "operations director",
+    "compliance manager",
 ]
 
 # ConstructionJobBoard.co.uk — Smart Job Board HTML scrape.
@@ -435,6 +452,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Volcanic platform — Navartis (rail/civil engineering recruiter)
@@ -458,6 +476,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 [sources.carrington_west]
@@ -475,6 +494,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Kier Careers — HTML scrape of jobs.kier.co.uk.
@@ -495,6 +515,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Laing O'Rourke Careers — JSON-LD scrape via sitemap.
@@ -516,6 +537,7 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]
 
 # Morson Talent — Drupal JSON:API at morson.com.
@@ -538,4 +560,5 @@ keywords_list = [
     "commercial manager",
     "operations director",
     "project planner",
+    "compliance manager",
 ]

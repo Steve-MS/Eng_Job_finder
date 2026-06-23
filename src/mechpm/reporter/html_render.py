@@ -515,6 +515,7 @@ import re as _re
 _JOBTYPE_RULES: list[tuple[_re.Pattern[str], str]] = [
     (_re.compile(r"document\s+control|records\s+control", _re.IGNORECASE), "Document Controller"),
     (_re.compile(r"assurance|\bsqa\b", _re.IGNORECASE), "Assurance"),
+    (_re.compile(r"compliance\s+manager|compliance\s+lead", _re.IGNORECASE), "Compliance Manager"),
     (_re.compile(r"planner|planning\s+engineer", _re.IGNORECASE), "Planner"),
     (_re.compile(r"site\s+manager", _re.IGNORECASE), "Site Manager"),
     (_re.compile(r"project\s+engineer", _re.IGNORECASE), "Project Engineer"),
@@ -524,6 +525,7 @@ _JOBTYPE_RULES: list[tuple[_re.Pattern[str], str]] = [
 _JOBTYPE_SLUG: dict[str, str] = {
     "Project Manager":      "project-manager",
     "Project Engineer":     "project-engineer",
+    "Compliance Manager":   "compliance-manager",
     "Assurance":            "assurance",
     "Document Controller":  "document-controller",
     "Site Manager":         "site-manager",
@@ -534,6 +536,7 @@ _JOBTYPE_SLUG: dict[str, str] = {
 _JOBTYPE_ORDER: list[str] = [
     "project-manager",
     "project-engineer",
+    "compliance-manager",
     "assurance",
     "document-controller",
     "site-manager",
