@@ -368,7 +368,7 @@ def cmd_run_all(args: argparse.Namespace) -> None:
     skip_report: bool = getattr(args, "skip_report", False)
     source_filter: str | None = getattr(args, "source", None)
 
-    # Parse --since (default: 7 days ago).
+    # Parse --since (default: 7 days ago, or today when a live fetch is run).
     since_raw: str | None = getattr(args, "since", None)
     if since_raw:
         try:
@@ -377,7 +377,13 @@ def cmd_run_all(args: argparse.Namespace) -> None:
             print(f"--since must be YYYY-MM-DD, got '{since_raw}'", file=sys.stderr)
             sys.exit(1)
     else:
-        since_date = date.today() - timedelta(days=7)
+        # Default: when fetching live, only report listings seen today to
+        # avoid showing jobs that have been removed from source sites.
+        # When skipping fetch (--skip-fetch), fall back to 7-day window.
+        if not skip_fetch:
+            since_date = date.today()
+        else:
+            since_date = date.today() - timedelta(days=7)
 
     manifest: dict | None = None
 
